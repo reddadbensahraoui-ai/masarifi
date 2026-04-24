@@ -1,0 +1,15 @@
+{
+  "name": "مصاريفي - تتبع المصاريف",
+  "short_name": "مصاريفي",
+  "start_url": "./index.html",
+  "display": "standalone",
+  "background_color": "#0F1117",
+  "theme_color": "#0F1117",
+  "orientation": "portrait",
+  "lang": "ar",
+  "dir": "rtl",
+  "icons": [
+    {"src": "https://via.placeholder.com/192x192/8B5CF6/ffffff?text=%D9%85", "sizes": "192x192", "type": "image/png"},
+    {"src": "https://via.placeholder.com/512x512/8B5CF6/ffffff?text=%D9%85", "sizes": "512x512", "type": "image/png"}
+  ]
+}
