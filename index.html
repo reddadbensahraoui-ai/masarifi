@@ -238,7 +238,7 @@ function renderAdd(m){
   h+='<div class="card" style="text-align:center;margin-bottom:14px">';
   h+='<div style="font-size:12px;color:#666;margin-bottom:7px">المبلغ</div>';
   h+='<div style="display:flex;align-items:center;justify-content:center;gap:8px">';
-  h+='<input id="ia" type="number" inputmode="decimal" placeholder="0.00" value="'+form.amount+'" style="background:transparent;border:none;outline:none;font-size:42px;font-weight:900;color:#fff;width:155px;text-align:center;font-family:Cairo,sans-serif"/>';
+  h+='<input id="ia" type="tel" inputmode="decimal" placeholder="0.00" value="'+form.amount+'" style="background:transparent;border:none;outline:none;font-size:42px;font-weight:900;color:#fff;width:155px;text-align:center;font-family:Cairo,sans-serif"/>';
   h+='<span style="font-size:16px;color:#666">'+currency+'</span></div></div>';
 
   h+='<div class="flabel">الفئة</div><div id="cg">';
@@ -384,7 +384,12 @@ function renderSettings(m){
 function bindAll(m){
   // inputs sync
   var ia=document.getElementById("ia"), ino=document.getElementById("in"), id=document.getElementById("id");
-  if(ia) ia.addEventListener("input",function(e){form.amount=e.target.value;});
+  if(ia){
+    ia.addEventListener("input",function(e){form.amount=e.target.value;window._amtVal=e.target.value;});
+    ia.addEventListener("change",function(e){form.amount=e.target.value;window._amtVal=e.target.value;});
+    ia.addEventListener("keyup",function(e){form.amount=e.target.value;window._amtVal=e.target.value;});
+    ia.addEventListener("blur",function(e){form.amount=e.target.value;window._amtVal=e.target.value;});
+  }
   if(ino) ino.addEventListener("input",function(e){form.note=e.target.value;});
   if(id) id.addEventListener("change",function(e){form.date=e.target.value;});
 
@@ -430,8 +435,11 @@ function bindAll(m){
     if(a==="back"){ form={amount:"",note:"",cat:"home",date:td()}; render("home"); }
     if(a==="hist"){ render("history"); }
     if(a==="add"){
-      var amt=parseFloat(form.amount);
-      if(!amt||amt<=0){toast("أدخل مبلغاً صحيحاً","e");return;}
+      var iaEl=document.getElementById("ia");
+      var rawVal=(iaEl&&iaEl.value.length>0)?iaEl.value:(window._amtVal||"");
+      var raw=String(rawVal).replace(/[٠-٩۰-۹]/g,function(d){var c=d.charCodeAt(0);return c>=0x06F0?c-0x06F0:c-0x0660;}).replace(/[^0-9.]/g,"");
+      var amt=raw.length>0?parseFloat(raw):NaN;
+      if(isNaN(amt)||amt<=0){toast("أدخل مبلغاً صحيحاً","e");return;}
       expenses.unshift({id:Date.now(),amount:amt,note:form.note.trim(),category:form.cat,date:form.date});
       saveExp(); checkAlert(form.cat);
       form={amount:"",note:"",cat:"home",date:td()};
