@@ -1,43 +1,23 @@
 <!DOCTYPE html>
 <html lang="ar" dir="rtl">
 <head>
-<meta charset="UTF-8"/>
-<meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no"/>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no">
 <title>مصاريفي</title>
 
-<meta name="apple-mobile-web-app-capable" content="yes"/>
-<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent"/>
-<meta name="apple-mobile-web-app-title" content="مصاريفي"/>
-<meta name="theme-color" content="#0F1117"/>
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="apple-mobile-web-app-title" content="مصاريفي">
+<meta name="theme-color" content="#0F1117">
 
-<link rel="manifest" href="manifest.json"/>
-<link href="https://fonts.googleapis.com/css2?family=Cairo:wght@400;700;900&display=swap" rel="stylesheet"/>
+<link rel="manifest" href="manifest.json">
+<link href="https://fonts.googleapis.com/css2?family=Cairo:wght@400;700;900&display=swap" rel="stylesheet">
 
 <style>
-*{
-box-sizing:border-box;
-margin:0;
-padding:0;
--webkit-tap-highlight-color:transparent;
-}
-
-html,body{
-height:100%;
-background:#0F1117;
-overflow:hidden;
-}
-
-body{
-font-family:'Cairo',sans-serif;
-color:#f0f0f0;
-direction:rtl;
-}
-
-input,button,textarea{
-font-family:'Cairo',sans-serif;
-font-size:16px;
-}
-
+*{box-sizing:border-box;margin:0;padding:0;-webkit-tap-highlight-color:transparent}
+html,body{height:100%;background:#0F1117;overflow:hidden}
+body{font-family:'Cairo',sans-serif;color:#f0f0f0;direction:rtl}
+input,button,textarea{font-family:'Cairo',sans-serif}
 ::-webkit-scrollbar{width:0}
 
 #app{
@@ -88,6 +68,34 @@ padding:14px;
 margin-bottom:10px;
 }
 
+.chip{
+background:#1E2030;
+border:1.5px solid transparent;
+border-radius:99px;
+padding:5px 13px;
+font-size:11px;
+color:#666;
+cursor:pointer;
+white-space:nowrap;
+}
+
+.tab{
+flex:1;
+background:none;
+border:none;
+border-bottom:2px solid transparent;
+padding:9px 0;
+font-size:12px;
+color:#555;
+cursor:pointer;
+}
+
+.tab.on{
+color:#B8B5FF;
+border-bottom-color:#B8B5FF;
+font-weight:700;
+}
+
 .btn-main{
 width:100%;
 background:linear-gradient(135deg,#B8B5FF,#8B5CF6);
@@ -103,14 +111,14 @@ cursor:pointer;
 .inp{
 width:100%;
 background:#1E2030;
-border:1px solid #333;
-border-radius:12px;
-padding:12px;
+border:1.5px solid #2A2D3E;
+border-radius:11px;
+padding:11px 13px;
+font-size:16px;
 color:#fff;
 outline:none;
 margin-bottom:10px;
 }
-
 </style>
 </head>
 
@@ -123,39 +131,29 @@ margin-bottom:10px;
 <div id="toast"></div>
 
 <script>
-var STORE_KEY="masarifi_v2";
+var STORE_KEY="masarifi_v1_clean";
+
+var APP=loadData();
+var curM=todayMonth();
+var curTab="charges";
 
 function loadData(){
 try{
-var x=localStorage.getItem(STORE_KEY);
-if(x)return JSON.parse(x);
+var r=localStorage.getItem(STORE_KEY);
+if(r)return JSON.parse(r);
 }catch(e){}
-return {
+return{
 currency:"MAD",
 months:{}
 };
 }
 
-var APP=loadData();
-
 function saveData(){
 try{
 localStorage.setItem(STORE_KEY,JSON.stringify(APP));
-return true;
 }catch(e){
 showToast("تعذر الحفظ","e");
-return false;
 }
-}
-
-function showToast(msg,type){
-var t=document.getElementById("toast");
-t.textContent=msg;
-t.className="on "+(type||"s");
-clearTimeout(window.tt);
-window.tt=setTimeout(function(){
-t.className="";
-},2200);
 }
 
 function today(){
@@ -178,93 +176,185 @@ year:"2-digit"
 });
 }
 
-function getM(key){
-if(!APP.months[key]){
-APP.months[key]={
+function mkLabel(mk){
+var p=mk.split("-");
+return new Date(
+parseInt(p[0]),
+parseInt(p[1])-1,
+1
+).toLocaleDateString("ar-MA",{
+month:"long",
+year:"numeric"
+});
+}
+
+function initMonth(){
+return{
 incomes:[
-{label:"الراتب",amount:10000}
+{label:"الراتب",amount:21128},
+{label:"تعويض الأطفال",amount:900}
 ],
 charges:[
-{label:"كراء",amount:2500},
-{label:"ماء وكهرباء",amount:600}
+{label:"HOME Crd",amount:2632},
+{label:"CAR",amount:2570},
+{label:"Charge Du Mois",amount:3500}
 ],
 savings:0
 };
 }
+
+function getM(key){
+if(!APP.months[key]){
+APP.months[key]=initMonth();
+}
 return APP.months[key];
 }
 
-function total(arr){
-return arr.reduce(function(a,b){
-return a+b.amount;
+function sum(arr){
+return arr.reduce(function(s,i){
+return s+(parseFloat(i.amount)||0);
 },0);
+}
+
+function showToast(msg,type){
+var el=document.getElementById("toast");
+el.textContent=msg;
+el.className="on "+(type||"s");
+clearTimeout(window.tt);
+window.tt=setTimeout(function(){
+el.className="";
+},2200);
 }
 
 function render(){
 
 var m=document.getElementById("main");
-var cur=todayMonth();
-var data=getM(cur);
+var md=getM(curM);
 
-var inc=total(data.incomes);
-var ch=total(data.charges);
-var bal=inc-ch-data.savings;
+var totalInc=sum(md.incomes);
+var totalC=sum(md.charges);
+var surplus=totalInc-totalC-md.savings;
 
 m.innerHTML=`
 
 <div style="padding:20px">
 
-<div class="card">
-<div style="font-size:12px;color:#888">الشهر الحالي</div>
-<div style="font-size:24px;font-weight:900">${mkShort(cur)}</div>
+<div style="display:flex;gap:8px;margin-bottom:10px">
+<button class="chip" onclick="changeMonth(-1)">◀</button>
+<div class="chip" style="flex:1;text-align:center;color:#B8B5FF">
+${mkLabel(curM)}
+</div>
+<button class="chip" onclick="changeMonth(1)">▶</button>
 </div>
 
 <div class="card">
-<div>💰 الدخل</div>
-<div style="font-size:22px;color:#06D6A0;font-weight:900">
-${inc.toLocaleString()} ${APP.currency}
-</div>
-</div>
-
-<div class="card">
-<div>📤 المصاريف</div>
-<div style="font-size:22px;color:#FF6B6B;font-weight:900">
-${ch.toLocaleString()} ${APP.currency}
+<div style="display:flex">
+<button class="tab ${curTab==='charges'?'on':''}" onclick="setTab('charges')">📤 المصاريف</button>
+<button class="tab ${curTab==='income'?'on':''}" onclick="setTab('income')">💰 الدخل</button>
+<button class="tab ${curTab==='settings'?'on':''}" onclick="setTab('settings')">⚙️</button>
 </div>
 </div>
 
 <div class="card">
-<div>🏦 الادخار</div>
-<input id="sav" class="inp" type="number" value="${data.savings}">
-<button class="btn-main" onclick="saveSavings()">حفظ الادخار</button>
-</div>
-
-<div class="card">
-<div>📊 المتبقي</div>
-<div style="
-font-size:24px;
-font-weight:900;
-color:${bal>=0?'#06D6A0':'#FF6B6B'};
-">
-${bal.toLocaleString()} ${APP.currency}
+<div style="font-size:11px;color:#777">الفائض / العجز</div>
+<div style="font-size:24px;font-weight:900;color:${surplus>=0?'#06D6A0':'#FF6B6B'}">
+${surplus.toLocaleString()} ${APP.currency}
 </div>
 </div>
 
-<div class="card">
-<button class="btn-main" onclick="exportData()">📤 تصدير نسخة احتياطية</button>
-<br><br>
-<button class="btn-main" onclick="importData()">📥 استيراد نسخة</button>
-</div>
+${buildSection(md,totalInc,totalC)}
 
 </div>
 `;
 }
 
+function buildSection(md,totalInc,totalC){
+
+if(curTab==="charges"){
+return `
+<div class="card">
+<div style="margin-bottom:8px">إجمالي المصاريف</div>
+<div style="font-size:22px;font-weight:900;color:#FF6B6B">
+${totalC.toLocaleString()} ${APP.currency}
+</div>
+</div>
+`;
+}
+
+if(curTab==="income"){
+return `
+<div class="card">
+<div style="margin-bottom:8px">إجمالي الدخل</div>
+<div style="font-size:22px;font-weight:900;color:#06D6A0">
+${totalInc.toLocaleString()} ${APP.currency}
+</div>
+</div>
+`;
+}
+
+return `
+<div class="card">
+<div style="margin-bottom:10px">العملة</div>
+
+<select class="inp" onchange="setCurrency(this.value)">
+<option ${APP.currency==='MAD'?'selected':''}>MAD</option>
+<option ${APP.currency==='USD'?'selected':''}>USD</option>
+<option ${APP.currency==='EUR'?'selected':''}>EUR</option>
+<option ${APP.currency==='SAR'?'selected':''}>SAR</option>
+</select>
+
+<div style="margin-top:10px">الادخار الشهري</div>
+<input id="sav" class="inp" type="number" value="${md.savings}">
+
+<button class="btn-main" onclick="saveSavings()">حفظ الادخار</button>
+
+<br><br>
+
+<button class="btn-main" onclick="exportData()">📤 تصدير نسخة</button>
+
+<br><br>
+
+<button class="btn-main" onclick="importData()">📥 استيراد نسخة</button>
+
+<br><br>
+
+<button class="btn-main" onclick="clearAll()">🗑 مسح البيانات</button>
+
+</div>
+`;
+}
+
+function setTab(t){
+curTab=t;
+render();
+}
+
+function changeMonth(step){
+
+var p=curM.split("-");
+var y=parseInt(p[0]);
+var m=parseInt(p[1])-1;
+
+var d=new Date(y,m+step,1);
+
+var yy=d.getFullYear();
+var mm=(d.getMonth()+1).toString().padStart(2,"0");
+
+curM=yy+"-"+mm;
+
+render();
+}
+
+function setCurrency(v){
+APP.currency=v;
+saveData();
+render();
+}
+
 function saveSavings(){
-var cur=todayMonth();
-var d=getM(cur);
-var v=parseFloat(document.getElementById("sav").value)||0;
-d.savings=v;
+var md=getM(curM);
+var val=parseFloat(document.getElementById("sav").value)||0;
+md.savings=val;
 saveData();
 render();
 showToast("تم الحفظ ✓");
@@ -291,7 +381,7 @@ showToast("تم التصدير ✓");
 
 function importData(){
 
-var txt=prompt("الصق ملف JSON هنا");
+var txt=prompt("الصق JSON هنا");
 
 if(!txt)return;
 
@@ -300,23 +390,36 @@ try{
 var imp=JSON.parse(txt);
 
 APP={
-currency:imp.currency || "MAD",
-months:imp.months || {}
+currency:imp.currency||"MAD",
+months:imp.months||{}
 };
 
 saveData();
 render();
-
 showToast("تم الاستيراد ✓");
 
 }catch(e){
 showToast("ملف غير صالح","e");
 }
+}
 
+function clearAll(){
+
+if(!confirm("هل أنت متأكد؟"))return;
+
+APP={
+currency:"MAD",
+months:{}
+};
+
+saveData();
+render();
+
+showToast("تم المسح","e");
 }
 
 window.addEventListener("error",function(){
-showToast("حدث خطأ بالتطبيق","e");
+showToast("حدث خطأ","e");
 });
 
 window.onload=function(){
