@@ -1,5 +1,4 @@
 <!DOCTYPE html>
-
 <html lang="ar" dir="rtl">
 <head>
 <meta charset="UTF-8"/>
@@ -9,12 +8,13 @@
 <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent"/>
 <meta name="apple-mobile-web-app-title" content="مصاريفي"/>
 <meta name="theme-color" content="#0F1117"/>
+<link rel="manifest" href="manifest.json"/>
 <link href="https://fonts.googleapis.com/css2?family=Cairo:wght@400;700;900&display=swap" rel="stylesheet"/>
 <style>
 *{box-sizing:border-box;margin:0;padding:0;-webkit-tap-highlight-color:transparent}
 html,body{height:100%;background:#0F1117;overflow:hidden}
 body{font-family:'Cairo',sans-serif;color:#f0f0f0;direction:rtl}
-input,button,textarea{font-family:'Cairo',sans-serif}
+input,button{font-family:'Cairo',sans-serif}
 ::-webkit-scrollbar{width:0}
 #app{max-width:430px;margin:0 auto;height:100vh;display:flex;flex-direction:column;background:#0F1117}
 #main{flex:1;overflow-y:auto;-webkit-overflow-scrolling:touch;padding-bottom:20px}
@@ -23,9 +23,6 @@ input,button,textarea{font-family:'Cairo',sans-serif}
 #toast.s{background:#06D6A0;color:#000}
 #toast.e{background:#FF6B6B;color:#fff}
 #toast.w{background:#FFD166;color:#000}
-#modal-overlay{position:fixed;inset:0;background:rgba(0,0,0,.75);z-index:500;display:flex;align-items:flex-end;justify-content:center;visibility:hidden;opacity:0;transition:opacity .2s}
-#modal-overlay.open{visibility:visible;opacity:1}
-#modal-box{background:#151720;border-radius:20px 20px 0 0;padding:20px 20px 40px;width:100%;max-width:430px;max-height:88vh;overflow-y:auto}
 .card{background:#1E2030;border-radius:16px;padding:14px;margin-bottom:10px}
 .chip{background:#1E2030;border:1.5px solid transparent;border-radius:99px;padding:5px 13px;font-size:11px;color:#666;cursor:pointer;white-space:nowrap;font-family:Cairo,sans-serif}
 .tab{flex:1;background:none;border:none;border-bottom:2px solid transparent;padding:9px 0;font-size:12px;color:#555;cursor:pointer;font-family:Cairo,sans-serif}
@@ -35,596 +32,452 @@ input,button,textarea{font-family:'Cairo',sans-serif}
 .bar-f{height:100%;border-radius:99px;transition:width .5s}
 .row{display:flex;align-items:center;justify-content:space-between}
 .irow{display:flex;align-items:center;justify-content:space-between;background:#1E2030;border-radius:13px;padding:10px 12px;margin-bottom:7px}
-.irow.paid{background:#0d1f0d;opacity:.75}
 .numpad{display:grid;grid-template-columns:repeat(3,1fr);gap:8px;margin-bottom:10px}
 .nk{border-radius:13px;padding:16px 0;font-size:21px;font-weight:700;cursor:pointer;border:1.5px solid #2A2D3E;background:#1E2030;color:#fff;font-family:Cairo,sans-serif}
-.nk.del{background:#FF6B6B22;border-color:#FF6B6B55;color:#FF6B6B}
+.nk.del{background:#FF6B6B22;border-color:#FF6B6B55;color:#FF6B6B;font-size:20px}
+.modal-bg{position:fixed;inset:0;background:rgba(0,0,0,.75);z-index:500;display:flex;align-items:flex-end;justify-content:center}
+.modal{background:#151720;border-radius:20px 20px 0 0;padding:20px 20px 40px;width:100%;max-width:430px;max-height:88vh;overflow-y:auto}
 .inp{width:100%;background:#1E2030;border:1.5px solid #2A2D3E;border-radius:11px;padding:11px 13px;font-size:14px;color:#fff;outline:none;font-family:Cairo,sans-serif;margin-bottom:10px}
-.inp:focus{border-color:#8B5CF6}
 .lbl{font-size:11px;color:#666;margin-bottom:6px;display:block}
-
-/* ── confirm dialog overlay ── */
-#confirm-overlay{
-position:fixed;inset:0;background:rgba(0,0,0,.8);z-index:1000;
-display:flex;align-items:center;justify-content:center;
-visibility:hidden;opacity:0;transition:opacity .2s;
-}
-#confirm-overlay.open{visibility:visible;opacity:1}
-#confirm-box{
-background:#151720;border-radius:20px;padding:24px 20px;
-width:88%;max-width:360px;text-align:center;
-}
-#confirm-box h3{font-size:16px;color:#fff;margin-bottom:10px}
-#confirm-box p{font-size:13px;color:#888;line-height:1.6;margin-bottom:20px}
-#confirm-box .btn-row{display:flex;gap:10px}
-#confirm-box .btn-cancel{flex:1;background:#2A2D3E;border:none;border-radius:12px;padding:12px;color:#aaa;font-size:14px;font-weight:700;cursor:pointer;font-family:Cairo,sans-serif}
-#confirm-box .btn-confirm{flex:1;background:#FF6B6B;border:none;border-radius:12px;padding:12px;color:#fff;font-size:14px;font-weight:700;cursor:pointer;font-family:Cairo,sans-serif}
 </style>
-
 </head>
 <body>
 <div id="app"><div id="main"></div></div>
-
-<div id="modal-overlay">
-  <div id="modal-box"></div>
-</div>
-
-<!-- Custom confirm dialog (replaces browser confirm) -->
-
-<div id="confirm-overlay">
-  <div id="confirm-box">
-    <h3 id="confirm-title">تأكيد</h3>
-    <p id="confirm-msg"></p>
-    <div class="btn-row">
-      <button class="btn-cancel" id="confirm-cancel">إلغاء</button>
-      <button class="btn-confirm" id="confirm-ok">تأكيد</button>
-    </div>
-  </div>
-</div>
-
 <div id="toast"></div>
 <script>
-/* ════════════════════════════════════════
-   CUSTOM CONFIRM  (replaces browser confirm)
-════════════════════════════════════════ */
-var _confirmCb = null;
+// ── DATA ──────────────────────────────────────────────────
+var SK = "masarifi_v1";
+var APP = (function(){ try{ var r=localStorage.getItem(SK); if(r) return JSON.parse(r); }catch(e){} return {currency:"MAD",months:{}}; })();
 
-function showConfirm(title, msg, cb){
-_confirmCb = cb;
-document.getElementById(“confirm-title”).textContent = title;
-document.getElementById(“confirm-msg”).textContent   = msg;
-document.getElementById(“confirm-overlay”).classList.add(“open”);
-}
-function closeConfirm(){
-document.getElementById(“confirm-overlay”).classList.remove(“open”);
-_confirmCb = null;
-}
+function save(){ try{ localStorage.setItem(SK,JSON.stringify(APP)); }catch(e){ toast("تعذر الحفظ!","e"); } }
 
-document.getElementById(“confirm-cancel”).addEventListener(“click”, function(){
-closeConfirm();
-});
-document.getElementById(“confirm-ok”).addEventListener(“click”, function(){
-closeConfirm();
-if(typeof _confirmCb === “function”) _confirmCb();
-});
-
-/* ════════════════════════════════════════
-CONSTANTS & DEFAULTS
-════════════════════════════════════════ */
-var STORE_KEY = “masarifi_v1”;
-
-var DEF_CHARGES = [
-{id:“home_crd”, label:“HOME Crd”,       amount:2632, icon:“🏠”, color:”#FF6B6B”},
-{id:“car”,      label:“CAR”,            amount:2570, icon:“🚗”, color:”#4ECDC4”},
-{id:“charge_m”, label:“Charge Du Mois”, amount:3500, icon:“🛒”, color:”#FFE66D”},
-{id:“crd_mois”, label:“Crd MOIS”,       amount:5000, icon:“💳”, color:”#B8B5FF”},
-{id:“ecole”,    label:“ECOLE”,          amount:950,  icon:“🎓”, color:”#A8E6CF”},
-{id:“cantine”,  label:“Cantine”,        amount:520,  icon:“🍽️”, color:”#FF8B94”},
-{id:“parent”,   label:“Parent Give”,    amount:1000, icon:“❤️”, color:”#FF8B94”},
-{id:“rak”,      label:“RAK”,            amount:300,  icon:“🏦”, color:”#06D6A0”},
-{id:“int”,      label:“INT”,            amount:250,  icon:“📄”, color:”#FFDAB9”}
+var DC = [
+  {id:"home_crd",label:"HOME Crd",amount:2632,icon:"🏠",color:"#FF6B6B"},
+  {id:"car",label:"CAR",amount:2570,icon:"🚗",color:"#4ECDC4"},
+  {id:"charge_m",label:"Charge Du Mois",amount:3500,icon:"🛒",color:"#FFE66D"},
+  {id:"crd_mois",label:"Crd MOIS",amount:5000,icon:"💳",color:"#B8B5FF"},
+  {id:"ecole",label:"ECOLE",amount:950,icon:"🎓",color:"#A8E6CF"},
+  {id:"cantine",label:"Cantine",amount:520,icon:"🍽️",color:"#FF8B94"},
+  {id:"parent",label:"Parent Give",amount:1000,icon:"❤️",color:"#FF8B94"},
+  {id:"rak",label:"RAK",amount:300,icon:"🏦",color:"#06D6A0"},
+  {id:"int",label:"INT",amount:250,icon:"📄",color:"#FFDAB9"}
 ];
-var DEF_INCOMES = [
-{id:“sal”,   label:“الراتب”,         amount:21128, icon:“💼”, color:”#06D6A0”},
-{id:“child”, label:“تعويض الأطفال”, amount:900,   icon:“👶”, color:”#74B9FF”}
+var DI = [
+  {id:"sal",label:"الراتب",amount:21128,icon:"💼",color:"#06D6A0"},
+  {id:"child",label:"تعويض الأطفال",amount:900,icon:"👶",color:"#74B9FF"}
 ];
-var ICONS    = [“📦”,“🚗”,“🛒”,“💊”,“🎓”,“🍽️”,“❤️”,“🏦”,“📄”,“💡”,“📶”,“🎯”,“💰”,“🔧”,“⚽”,“👕”,“✈️”,“🎬”,“🏠”,“💳”,“🌿”,“⛽”,“🏥”,“📱”,“🎁”,“💼”,“👶”,“🏗️”];
-var COLORS   = [”#FF6B6B”,”#4ECDC4”,”#FFE66D”,”#B8B5FF”,”#A8E6CF”,”#FF8B94”,”#06D6A0”,”#FFDAB9”,”#FFD166”,”#74B9FF”,”#fd79a8”,”#00cec9”];
-var CURRENCIES = [“MAD”,“DZD”,“TND”,“SAR”,“AED”,“USD”,“EUR”];
+var ICONS=["📦","🚗","🛒","💊","🎓","🍽️","❤️","🏦","📄","💡","📶","🎯","💰","🔧","⚽","👕","✈️","🎬","🏠","💳","🌿","⛽","🏥","📱","🎁","💼","👶","🏗️"];
+var COLS=["#FF6B6B","#4ECDC4","#FFE66D","#B8B5FF","#A8E6CF","#FF8B94","#06D6A0","#FFDAB9","#FFD166","#74B9FF","#fd79a8","#00cec9"];
+var CURRS=["MAD","DZD","TND","SAR","AED","USD","EUR"];
 
-/* ════════════════════════════════════════
-DATA
-════════════════════════════════════════ */
-function deepClone(o){ return JSON.parse(JSON.stringify(o)); }
-
-function loadData(){
-try{ var r=localStorage.getItem(STORE_KEY); if(r) return JSON.parse(r); }catch(e){}
-return {currency:“MAD”, months:{}};
-}
-function saveData(){
-try{ localStorage.setItem(STORE_KEY, JSON.stringify(APP)); }
-catch(e){ toast(“تعذر الحفظ!”,“e”); }
+function newMonth(){
+  return {
+    incomes: DI.map(function(i){ return {id:i.id,label:i.label,amount:i.amount,icon:i.icon,color:i.color}; }),
+    charges: DC.map(function(c){ return {id:c.id,label:c.label,amount:c.amount,icon:c.icon,color:c.color,paid:false}; }),
+    savings: 0
+  };
 }
 
-/* ─── FIX: clearAll now correctly resets APP first, then saves ─── */
-function clearAll(){
-var c = (APP && APP.currency) ? APP.currency : “MAD”;
-APP = {currency: c, months: {}};   /* 1. reset the in-memory object */
-localStorage.removeItem(STORE_KEY);/* 2. wipe storage               */
-saveData();                         /* 3. write fresh empty object   */
+function gen10Y(){
+  var k=[],d=new Date(2024,0,1);
+  for(var i=0;i<144;i++){
+    k.push(d.getFullYear()+"-"+(d.getMonth()<9?"0":"")+(d.getMonth()+1));
+    d.setMonth(d.getMonth()+1);
+  }
+  return k;
 }
+var ALL = gen10Y();
 
-function initMonth(){
-return {
-incomes: deepClone(DEF_INCOMES),
-charges: deepClone(DEF_CHARGES).map(function(c){ c.paid=false; return c; }),
-savings: 0
-};
-}
-function peekM(key){
-return APP.months[key] || {incomes:[], charges:[], savings:0};
-}
-function useM(key){
-if(!APP.months[key]) APP.months[key] = initMonth();
-return APP.months[key];
-}
+function td(){ return new Date().toISOString().slice(0,10); }
+function tm(){ return td().slice(0,7); }
+function mlabel(mk){ var p=mk.split("-"); return new Date(p[0],p[1]-1,1).toLocaleDateString("ar-MA",{month:"long",year:"numeric"}); }
+function mshort(mk){ return new Date(mk+"-01").toLocaleDateString("ar-MA",{month:"short",year:"2-digit"}); }
+function gm(k){ if(!APP.months[k]) APP.months[k]=newMonth(); return APP.months[k]; }
 
-function gen10Years(){
-var out=[], d=new Date(2024,0,1);
-for(var i=0;i<144;i++){
-out.push(d.getFullYear()+”-”+(d.getMonth()<9?“0”:””)+(d.getMonth()+1));
-d.setMonth(d.getMonth()+1);
-}
-return out;
-}
-var ALL_MONTHS = gen10Years();
+// ── STATE ─────────────────────────────────────────────────
+var curM  = tm();
+var curTab= "charges";
+var modal = null;
+var pendingDelId   = null;
+var pendingDelType = null;
+var numVal  = "";
+var numLabel= "";
+var numIcon = "📦";
+var numCol  = "#B8B5FF";
+var numStep = "info";
+var editId  = null;
+var editType= null;
 
-/* ════════════════════════════════════════
-STATE
-════════════════════════════════════════ */
-var APP      = loadData();
-var curM     = new Date().toISOString().slice(0,7);
-var curTab   = “charges”;
-var modalKind = “”;
-var modalStep = “info”;
-var numVal    = “”;
-var numLabel  = “”;
-var numIcon   = “📦”;
-var numColor  = “#B8B5FF”;
-var editItem  = null;
-var editType  = “”;
-
-/* ════════════════════════════════════════
-HELPERS
-════════════════════════════════════════ */
-function mkLabel(mk){ var p=mk.split(”-”); return new Date(+p[0],+p[1]-1,1).toLocaleDateString(“ar-MA”,{month:“long”,year:“numeric”}); }
-function mkShort(mk){ var p=mk.split(”-”); return new Date(+p[0],+p[1]-1,1).toLocaleDateString(“ar-MA”,{month:“short”,year:“2-digit”}); }
-function esc(s){ return (s||””).replace(/&/g,”&”).replace(/”/g,”"”).replace(/</g,”<”).replace(/>/g,”>”); }
-function uid(){ return Date.now()+”_”+Math.floor(Math.random()*1e9); }
-
+// ── TOAST ─────────────────────────────────────────────────
 var _tt;
 function toast(msg,type){
-var el=document.getElementById(“toast”);
-el.textContent=msg; el.className=“on “+(type||“s”);
-clearTimeout(_tt); _tt=setTimeout(function(){ el.className=””; },2500);
+  var el=document.getElementById("toast");
+  el.textContent=msg; el.className="on "+(type||"s");
+  clearTimeout(_tt); _tt=setTimeout(function(){ el.className=""; },2400);
 }
 
-/* ════════════════════════════════════════
-AUTO BACKUP (once per month)
-════════════════════════════════════════ */
-setTimeout(function(){
-try{
-var now=new Date(), tag=now.getFullYear()+”-”+now.getMonth();
-if(localStorage.getItem(“masarifi_backup_tag”)===tag) return;
-if(!Object.keys(APP.months).length) return;
-var b=new Blob([JSON.stringify(APP,null,2)],{type:“application/json”});
-var u=URL.createObjectURL(b), a=document.createElement(“a”);
-a.href=u; a.download=“masarifi_auto_”+now.getFullYear()+”-”+(now.getMonth()+1)+”-”+now.getDate()+”.json”;
-a.click(); URL.revokeObjectURL(u);
-localStorage.setItem(“masarifi_backup_tag”,tag);
-toast(“تم النسخ الاحتياطي التلقائي ✓”);
-}catch(e){}
-},3000);
-
-/* ════════════════════════════════════════
-OPEN / CLOSE MODAL
-════════════════════════════════════════ */
-function openModal(kind){
-modalKind = kind;
-document.getElementById(“modal-overlay”).classList.add(“open”);
-redrawModal();
-}
-function closeModal(){
-modalKind = “”;
-modalStep = “info”;
-numVal=””; numLabel=””; numIcon=“📦”; numColor=”#B8B5FF”;
-document.getElementById(“modal-overlay”).classList.remove(“open”);
-document.getElementById(“modal-box”).innerHTML = “”;
+// ── AUTO BACKUP ───────────────────────────────────────────
+function autoBackup(){
+  try{
+    var last=localStorage.getItem("masarifi_bk");
+    var now=new Date();
+    var key=now.getFullYear()+"-"+now.getMonth();
+    if(last===key||Object.keys(APP.months).length===0) return;
+    var blob=new Blob([JSON.stringify(APP,null,2)],{type:"application/json"});
+    var url=URL.createObjectURL(blob);
+    var a=document.createElement("a");
+    a.href=url;
+    a.download="masarifi_auto_"+now.getFullYear()+"-"+(now.getMonth()+1)+"-"+now.getDate()+".json";
+    a.click();
+    URL.revokeObjectURL(url);
+    localStorage.setItem("masarifi_bk",key);
+    toast("تم النسخ الاحتياطي التلقائي ✓");
+  }catch(e){}
 }
 
-/* ════════════════════════════════════════
-RENDER
-════════════════════════════════════════ */
+// ── RENDER ────────────────────────────────────────────────
 function render(){
-document.getElementById(“main”).innerHTML = buildMain();
+  var el=document.getElementById("main");
+  var st=el.scrollTop;
+  el.innerHTML=page();
+  bind();
+  el.scrollTop=st;
 }
 
-/* ════════════════════════════════════════
-BUILD MAIN
-════════════════════════════════════════ */
-function buildMain(){
-var md  = peekM(curM);
-var inc = md.incomes.reduce(function(s,x){return s+x.amount;},0);
-var exp = md.charges.reduce(function(s,x){return s+x.amount;},0);
-var paid= md.charges.filter(function(x){return x.paid;}).reduce(function(s,x){return s+x.amount;},0);
-var sur = inc - exp;
-var aft = sur - (md.savings||0);
-var sc  = sur>=0?”#06D6A0”:”#FF6B6B”;
-var cur = APP.currency;
-var tm  = new Date().toISOString().slice(0,7);
-var mI  = ALL_MONTHS.indexOf(curM);
-var vis = ALL_MONTHS.slice(Math.max(0,mI-3), Math.min(ALL_MONTHS.length,mI+7));
+// ── PAGE ──────────────────────────────────────────────────
+function page(){
+  var md=gm(curM);
+  var tInc=md.incomes.reduce(function(s,i){return s+i.amount;},0);
+  var tChg=md.charges.reduce(function(s,c){return s+c.amount;},0);
+  var paid=md.charges.filter(function(c){return c.paid;}).reduce(function(s,c){return s+c.amount;},0);
+  var surp=tInc-tChg;
+  var afsv=surp-(md.savings||0);
+  var cur=APP.currency;
+  var now=tm();
+  var ni=ALL.indexOf(now);
+  var ci=ALL.indexOf(curM);
+  var vs=ALL.slice(Math.max(0,ci-3),Math.min(ALL.length,ci+7));
+  var h="";
 
-var h = ‘<div style="background:linear-gradient(160deg,#1a1d2e,#0F1117);padding:48px 0 0">’;
-
-/* month strip */
-h += ‘<div style="display:flex;gap:7px;overflow-x:auto;padding:0 20px 12px">’;
-vis.forEach(function(mk){
-var sel = mk===curM ? “border-color:#B8B5FF;color:#B8B5FF;background:#B8B5FF15”
-: mk===tm ? “border-color:#06D6A0;color:#06D6A0;background:#06D6A015” : “”;
-h += ‘<div class="chip" style="'+sel+'" data-mk="'+mk+'">’+mkShort(mk)+’</div>’;
-});
-h += ‘</div>’;
-
-/* summary */
-h += ‘<div style="padding:0 20px 14px">’;
-h += ‘<div style="font-size:11px;color:#555;margin-bottom:8px">’+mkLabel(curM)+’</div>’;
-h += ‘<div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:10px">’;
-h += ‘<div class="card" style="margin-bottom:0"><div style="font-size:10px;color:#555;margin-bottom:3px">💰 الدخل</div><div style="font-size:20px;font-weight:900;color:#06D6A0">’+inc.toLocaleString()+’</div><div style="font-size:9px;color:#444">’+cur+’</div></div>’;
-h += ‘<div class="card" style="margin-bottom:0"><div style="font-size:10px;color:#555;margin-bottom:3px">📤 المصاريف</div><div style="font-size:20px;font-weight:900;color:#FF8B94">’+exp.toLocaleString()+’</div><div style="font-size:9px;color:#444">’+cur+’</div></div>’;
-h += ‘</div>’;
-
-h += ‘<div class="card" style="margin-bottom:8px">’;
-h += ‘<div class="row" style="margin-bottom:6px"><span style="font-size:11px;color:#666">الفائض / العجز</span>’;
-h += ‘<span style="font-size:18px;font-weight:900;color:'+sc+'">’+(sur>=0?”+”:””)+sur.toLocaleString()+’ ‘+cur+’</span></div>’;
-h += ‘<div class="bar-t"><div class="bar-f" style="width:'+(inc>0?Math.min(exp/inc*100,100):0)+'%;background:'+sc+'"></div></div>’;
-h += ‘<div class="row" style="margin-top:3px;font-size:9px;color:#444"><span>مدفوع: ‘+paid.toLocaleString()+’</span><span>متبقي: ‘+(exp-paid).toLocaleString()+’</span></div></div>’;
-
-var sav = md.savings||0;
-h += ‘<div class=“card” style=“border:1.5px solid ‘+(sav>0?”#74B9FF44”:”#2A2D3E”)+’;background:’+(sav>0?”#0a1f2a”:”#1E2030”)+’”>’;
-h += ‘<div class="row"><div><div style="font-size:11px;color:#74B9FF;margin-bottom:2px">🏦 الادخار</div>’;
-h += ‘<div style="font-size:18px;font-weight:900;color:#74B9FF">’+sav.toLocaleString()+’ <span style="font-size:10px;color:#555">’+cur+’</span></div></div>’;
-h += ‘<button id="btn-open-savings" style="background:#2A2D3E;border:none;border-radius:9px;padding:6px 11px;color:#888;font-size:12px;cursor:pointer">✏️ تعديل</button></div>’;
-if(sav>0) h += ‘<div class="row" style="margin-top:8px;font-size:12px"><span style="color:#666">المتبقي بعد الادخار</span><span style=“font-weight:800;color:’+(aft>=0?”#06D6A0”:”#FF6B6B”)+’”>’+(aft>=0?”+”:””)+aft.toLocaleString()+’ ‘+cur+’</span></div>’;
-if(sur>0&&!sav) h += ‘<div style="font-size:10px;color:#555;margin-top:6px">لديك فائض ‘+sur.toLocaleString()+’ ‘+cur+’ — يمكنك ادخار جزء منه 💡</div>’;
-h += ‘</div></div></div>’;
-
-/* tabs */
-h += ‘<div style="display:flex;border-bottom:1px solid #1E2030;background:#0F1117;position:sticky;top:0;z-index:10">’;
-h += ‘<button class=“tab’+(curTab===“charges”?” on”:””)+’” id=“tab-charges”>📤 المصاريف (’+md.charges.length+’)</button>’;
-h += ‘<button class=“tab’+(curTab===“income”?” on”:””)+’” id=“tab-income”>💰 الدخل (’+md.incomes.length+’)</button>’;
-h += ‘<button class=“tab’+(curTab===“settings”?” on”:””)+’” id=“tab-settings”>⚙️</button>’;
-h += ‘</div>’;
-
-h += ‘<div style="padding:12px 20px">’;
-
-if(curTab===“charges”){
-h += ‘<button id="btn-add-charge" style="width:100%;background:#1E2030;border:1.5px dashed #B8B5FF55;border-radius:13px;padding:11px;color:#B8B5FF;font-size:13px;cursor:pointer;margin-bottom:10px">+ إضافة مصروف</button>’;
-md.charges.forEach(function(c){ h += buildRow(c, cur, true); });
-}
-
-if(curTab===“income”){
-h += ‘<button id="btn-add-income" style="width:100%;background:#1E2030;border:1.5px dashed #06D6A055;border-radius:13px;padding:11px;color:#06D6A0;font-size:13px;cursor:pointer;margin-bottom:10px">+ إضافة مصدر دخل</button>’;
-md.incomes.forEach(function(x){ h += buildRow(x, cur, false); });
-h += ‘<div style="background:#0a1f0a;border-radius:13px;padding:10px 14px;border:1px solid #06D6A022;margin-top:6px"><div class="row"><span style="color:#888;font-size:13px">إجمالي الدخل</span><span style="font-weight:800;color:#06D6A0;font-size:14px">’+inc.toLocaleString()+’ ‘+cur+’</span></div></div>’;
-}
-
-if(curTab===“settings”){
-h += ‘<div class="card"><div style="font-size:11px;color:#444;margin-bottom:9px">العملة</div><div style="display:flex;flex-wrap:wrap;gap:7px">’;
-CURRENCIES.forEach(function(c){
-var on = APP.currency===c;
-h += ‘<div class=“chip cur-chip” style=”’+(on?“border-color:#B8B5FF;color:#B8B5FF;background:#B8B5FF15”:””)+’” data-cur=”’+c+’”>’+c+’</div>’;
-});
-h += ‘</div></div>’;
-
-```
-h += '<div class="card"><div style="font-size:11px;color:#444;margin-bottom:10px">ملخص الأشهر</div>';
-var mkeys = Object.keys(APP.months).sort();
-if(!mkeys.length){
-  h += '<div style="font-size:12px;color:#333;text-align:center;padding:10px">لا توجد بيانات بعد</div>';
-} else {
-  mkeys.forEach(function(mk){
-    var mm=APP.months[mk];
-    var ti=mm.incomes.reduce(function(s,x){return s+x.amount;},0);
-    var tc=mm.charges.reduce(function(s,x){return s+x.amount;},0);
-    var b=ti-tc;
-    h += '<div class="row" style="font-size:12px;margin-bottom:6px;padding:5px 0;border-bottom:1px solid #2A2D3E">';
-    h += '<span style="color:#888">'+mkShort(mk)+'</span>';
-    h += '<span style="font-weight:700;color:'+(b>=0?"#06D6A0":"#FF6B6B")+'">'+(b>=0?"+":"")+b.toLocaleString()+'</span></div>';
+  // ── HEADER
+  h+='<div style="background:linear-gradient(160deg,#1a1d2e,#0F1117);padding:48px 0 0">';
+  h+='<div style="display:flex;gap:7px;overflow-x:auto;padding:0 20px 12px">';
+  vs.forEach(function(mk){
+    var s= mk===now  ? "border-color:#06D6A0;color:#06D6A0;background:#06D6A015" :
+           mk===curM ? "border-color:#B8B5FF;color:#B8B5FF;background:#B8B5FF15" : "";
+    h+='<div class="chip" style="'+s+'" onclick="setCurM(\''+mk+'\')">'+mshort(mk)+'</div>';
   });
-}
-h += '</div>';
+  h+='</div>';
 
-h += '<div class="card"><div style="font-size:11px;color:#444;margin-bottom:10px">💾 النسخ الاحتياطي</div>';
-h += '<div style="font-size:11px;color:#555;margin-bottom:10px;line-height:1.6">بياناتك محفوظة على هاتفك فقط ✅<br>لا ترسل لأي خادم — خصوصية تامة 🔒</div>';
-h += '<button id="btn-export" style="width:100%;background:#0a1f2a;border:1.5px solid #74B9FF44;border-radius:12px;padding:12px;color:#74B9FF;font-size:13px;font-weight:700;cursor:pointer;margin-bottom:8px">📤 تصدير نسخة احتياطية</button>';
-h += '<button id="btn-import" style="width:100%;background:#1a1a0a;border:1.5px solid #FFD16644;border-radius:12px;padding:12px;color:#FFD166;font-size:13px;font-weight:700;cursor:pointer">📥 استيراد نسخة احتياطية</button></div>';
-h += '<button id="btn-clear" style="width:100%;background:#FF6B6B15;border:1.5px solid #FF6B6B33;border-radius:13px;padding:14px;color:#FF6B6B;font-size:14px;font-weight:700;cursor:pointer;margin-top:4px">🗑️ مسح جميع البيانات</button>';
-```
+  // summary
+  h+='<div style="padding:0 20px 14px">';
+  h+='<div style="font-size:11px;color:#555;margin-bottom:8px">'+mlabel(curM)+'</div>';
+  h+='<div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:10px">';
+  h+='<div class="card" style="margin-bottom:0"><div style="font-size:10px;color:#555;margin-bottom:3px">💰 الدخل</div><div style="font-size:20px;font-weight:900;color:#06D6A0">'+tInc.toLocaleString()+'</div><div style="font-size:9px;color:#444">'+cur+'</div></div>';
+  h+='<div class="card" style="margin-bottom:0"><div style="font-size:10px;color:#555;margin-bottom:3px">📤 المصاريف</div><div style="font-size:20px;font-weight:900;color:#FF8B94">'+tChg.toLocaleString()+'</div><div style="font-size:9px;color:#444">'+cur+'</div></div>';
+  h+='</div>';
+  var sc=surp>=0?"#06D6A0":"#FF6B6B";
+  h+='<div class="card" style="margin-bottom:8px">';
+  h+='<div class="row" style="margin-bottom:6px"><span style="font-size:11px;color:#666">الفائض / العجز</span>';
+  h+='<span style="font-size:18px;font-weight:900;color:'+sc+'">'+(surp>=0?"+":"")+surp.toLocaleString()+' '+cur+'</span></div>';
+  h+='<div class="bar-t"><div class="bar-f" style="width:'+(tInc>0?Math.min((tChg/tInc)*100,100):0)+'%;background:'+sc+'"></div></div>';
+  h+='<div class="row" style="margin-top:3px;font-size:9px;color:#444"><span>مدفوع: '+paid.toLocaleString()+'</span><span>متبقي: '+(tChg-paid).toLocaleString()+'</span></div>';
+  h+='</div>';
+  var sv=md.savings||0;
+  h+='<div class="card" style="border:1.5px solid '+(sv>0?"#74B9FF44":"#2A2D3E")+';background:'+(sv>0?"#0a1f2a":"#1E2030")+'">';
+  h+='<div class="row"><div><div style="font-size:11px;color:#74B9FF;margin-bottom:2px">🏦 الادخار</div>';
+  h+='<div style="font-size:18px;font-weight:900;color:#74B9FF">'+sv.toLocaleString()+' <span style="font-size:10px;color:#555">'+cur+'</span></div></div>';
+  h+='<button onclick="openModal(\'savings\')" style="background:#2A2D3E;border:none;border-radius:9px;padding:6px 11px;color:#888;font-size:12px;cursor:pointer;font-family:Cairo,sans-serif">✏️ تعديل</button></div>';
+  if(sv>0){
+    var ac=afsv>=0?"#06D6A0":"#FF6B6B";
+    h+='<div class="row" style="margin-top:8px;font-size:12px"><span style="color:#666">المتبقي بعد الادخار</span><span style="font-weight:800;color:'+ac+'">'+(afsv>=0?"+":"")+afsv.toLocaleString()+' '+cur+'</span></div>';
+  }
+  if(surp>0&&!sv) h+='<div style="font-size:10px;color:#555;margin-top:6px">لديك فائض '+surp.toLocaleString()+' '+cur+' — يمكنك ادخار جزء منه 💡</div>';
+  h+='</div></div></div>';
 
-}
+  // ── TABS
+  h+='<div style="display:flex;border-bottom:1px solid #1E2030;background:#0F1117;position:sticky;top:0;z-index:10">';
+  h+='<button class="tab'+(curTab==="charges"?" on":"")+'" onclick="setTab(\'charges\')">📤 المصاريف ('+md.charges.length+')</button>';
+  h+='<button class="tab'+(curTab==="income"?" on":"")+'" onclick="setTab(\'income\')">💰 الدخل ('+md.incomes.length+')</button>';
+  h+='<button class="tab'+(curTab==="settings"?" on":"")+'" onclick="setTab(\'settings\')">⚙️</button>';
+  h+='</div>';
 
-h += ‘</div>’;
-return h;
-}
+  h+='<div style="padding:12px 20px">';
 
-function buildRow(item, cur, isCharge){
-var h = ‘<div class=“irow’+(item.paid?” paid”:””)+’” style=“border-right:3px solid ‘+(item.paid?”#06D6A0”:item.color)+’”>’;
-h += ‘<div style="display:flex;align-items:center;gap:8px;flex:1">’;
-if(isCharge){
-h += ‘<button class=“toggle-paid-btn” data-id=”’+item.id+’” style=“background:’+(item.paid?”#06D6A033”:“transparent”)+’;border:2px solid ‘+(item.paid?”#06D6A0”:”#333”)+’;border-radius:99px;width:24px;height:24px;cursor:pointer;display:flex;align-items:center;justify-content:center;font-size:12px;color:#06D6A0;flex-shrink:0”>’+(item.paid?“✓”:””)+’</button>’;
-}
-h += ‘<span style="font-size:18px">’+item.icon+’</span>’;
-h += ‘<div><div style=“font-size:13px;color:’+(item.paid?”#555”:”#ccc”)+’;text-decoration:’+(item.paid?“line-through”:“none”)+’”>’+esc(item.label)+’</div>’;
-if(item.paid) h += ‘<div style="font-size:10px;color:#06D6A0">✓ مدفوع</div>’;
-h += ‘</div></div>’;
-h += ‘<div style="display:flex;align-items:center;gap:7px">’;
-h += ‘<span style=“font-size:14px;font-weight:800;color:’+(item.paid?”#444”:item.color)+’”>’+item.amount.toLocaleString()+’</span>’;
-h += ‘<button class=“edit-btn” data-id=”’+item.id+’” data-type=”’+(isCharge?“charge”:“income”)+’” style=“background:#2A2D3E;border:none;border-radius:7px;width:24px;height:24px;font-size:12px;cursor:pointer;color:#777”>✏️</button>’;
-h += ‘<button class=“del-btn”  data-id=”’+item.id+’” data-type=”’+(isCharge?“charge”:“income”)+’” style=“background:#2A2D3E;border:none;border-radius:7px;width:24px;height:24px;font-size:13px;cursor:pointer;color:#555”>🗑</button>’;
-h += ‘</div></div>’;
-return h;
-}
+  // ── CHARGES TAB
+  if(curTab==="charges"){
+    h+='<button onclick="openModal(\'addCharge\')" style="width:100%;background:#1E2030;border:1.5px dashed #B8B5FF55;border-radius:13px;padding:11px;color:#B8B5FF;font-size:13px;cursor:pointer;font-family:Cairo,sans-serif;margin-bottom:10px">+ إضافة مصروف</button>';
+    var sorted=md.charges.slice().sort(function(a,b){return b.amount-a.amount;});
+    sorted.forEach(function(c){ h+=itemRow(c,cur,true); });
+  }
 
-/* ════════════════════════════════════════
-MODAL HTML
-════════════════════════════════════════ */
-function redrawModal(){
-document.getElementById(“modal-box”).innerHTML = buildModalHTML();
-}
+  // ── INCOME TAB
+  if(curTab==="income"){
+    h+='<button onclick="openModal(\'addIncome\')" style="width:100%;background:#1E2030;border:1.5px dashed #06D6A055;border-radius:13px;padding:11px;color:#06D6A0;font-size:13px;cursor:pointer;font-family:Cairo,sans-serif;margin-bottom:10px">+ إضافة مصدر دخل</button>';
+    md.incomes.forEach(function(i){ h+=itemRow(i,cur,false); });
+    h+='<div style="background:#0a1f0a;border-radius:13px;padding:10px 14px;border:1px solid #06D6A022;margin-top:6px">';
+    h+='<div class="row"><span style="color:#888;font-size:13px">إجمالي الدخل</span><span style="font-weight:800;color:#06D6A0;font-size:14px">'+tInc.toLocaleString()+' '+cur+'</span></div></div>';
+  }
 
-function buildModalHTML(){
-var cur = APP.currency;
-var h = ‘<div class="row" style="margin-bottom:16px">’;
+  // ── SETTINGS TAB
+  if(curTab==="settings"){
+    h+='<div class="card"><div style="font-size:11px;color:#444;margin-bottom:9px">العملة</div><div style="display:flex;flex-wrap:wrap;gap:7px">';
+    CURRS.forEach(function(c){ h+='<div class="chip'+(APP.currency===c?" on":"")+'" onclick="setCur(\''+c+'\')">'+c+'</div>'; });
+    h+='</div></div>';
+    h+='<div class="card"><div style="font-size:11px;color:#444;margin-bottom:10px">ملخص الأشهر</div>';
+    Object.keys(APP.months).sort().forEach(function(mk){
+      var mm=APP.months[mk];
+      var ti=mm.incomes.reduce(function(s,i){return s+i.amount;},0);
+      var tc=mm.charges.reduce(function(s,c){return s+c.amount;},0);
+      var b=ti-tc;
+      h+='<div class="row" style="font-size:12px;margin-bottom:6px;padding:5px 0;border-bottom:1px solid #2A2D3E">';
+      h+='<span style="color:#888">'+mshort(mk)+'</span>';
+      h+='<span style="font-weight:700;color:'+(b>=0?"#06D6A0":"#FF6B6B")+'">'+(b>=0?"+":"")+b.toLocaleString()+'</span></div>';
+    });
+    h+='</div>';
+    h+='<div class="card"><div style="font-size:11px;color:#444;margin-bottom:10px">💾 النسخ الاحتياطي</div>';
+    h+='<div style="font-size:11px;color:#555;margin-bottom:10px;line-height:1.7">بياناتك على هاتفك فقط ✅<br>لا ترسل لأي خادم 🔒<br>نسخة احتياطية تلقائية كل شهر</div>';
+    h+='<button onclick="doExport()" style="width:100%;background:#0a1f2a;border:1.5px solid #74B9FF44;border-radius:12px;padding:12px;color:#74B9FF;font-size:13px;font-weight:700;cursor:pointer;font-family:Cairo,sans-serif;margin-bottom:8px">📤 تصدير نسخة احتياطية</button>';
+    h+='<button onclick="openModal(\'import\')" style="width:100%;background:#1a1a0a;border:1.5px solid #FFD16644;border-radius:12px;padding:12px;color:#FFD166;font-size:13px;font-weight:700;cursor:pointer;font-family:Cairo,sans-serif;margin-bottom:8px">📥 استيراد نسخة احتياطية</button>';
+    h+='<button onclick="openModal(\'confirmClear\')" style="width:100%;background:#FF6B6B15;border:1.5px solid #FF6B6B33;border-radius:13px;padding:12px;color:#FF6B6B;font-size:13px;font-weight:700;cursor:pointer;font-family:Cairo,sans-serif">🗑️ مسح جميع البيانات</button>';
+    h+='</div>';
+  }
 
-if(modalKind===“savings”){
-var md=peekM(curM);
-var sp=md.incomes.reduce(function(s,x){return s+x.amount;},0)-md.charges.reduce(function(s,x){return s+x.amount;},0);
-h += ‘<span style="font-size:16px;font-weight:800">🏦 الادخار الشهري</span>’;
-h += xBtn()+’</div>’;
-h += ‘<div style="font-size:11px;color:#666;margin-bottom:6px">الفائض المتاح: <span style="color:#06D6A0;font-weight:700">’+Math.max(0,sp).toLocaleString()+’ ‘+cur+’</span></div>’;
-h += numDisplay(numVal, “#74B9FF”, cur);
-h += numpadHTML();
-h += ‘<button id="m-save-savings" class="btn-main">حفظ الادخار</button>’;
-
-} else if(modalKind===“addCharge”||modalKind===“addIncome”){
-var title = modalKind===“addCharge” ? “إضافة مصروف” : “إضافة مصدر دخل”;
-h += ‘<span style="font-size:16px;font-weight:800">’+title+’</span>’;
-h += xBtn()+’</div>’;
-if(modalStep===“info”){
-h += ‘<label class="lbl">الاسم</label><input id="m-label" class="inp" type="text" placeholder="مثل: Diesel، Assurance..." value="'+esc(numLabel)+'"/>’;
-h += ‘<label class="lbl">الأيقونة</label><div style="display:flex;flex-wrap:wrap;gap:6px;margin-bottom:12px">’;
-ICONS.forEach(function(ic){ h += ‘<button class=“icon-btn” data-ic=”’+ic+’” style=“background:’+(numIcon===ic?”#B8B5FF22”:”#1E2030”)+’;border:2px solid ‘+(numIcon===ic?”#B8B5FF”:“transparent”)+’;border-radius:9px;padding:7px 9px;font-size:19px;cursor:pointer”>’+ic+’</button>’; });
-h += ‘</div><label class="lbl">اللون</label><div style="display:flex;gap:7px;flex-wrap:wrap;margin-bottom:18px">’;
-COLORS.forEach(function(col){ h += ‘<button class=“color-btn” data-col=”’+col+’” style=“width:30px;height:30px;border-radius:99px;background:’+col+’;border:’+(numColor===col?“3px solid #fff”:“3px solid transparent”)+’;cursor:pointer”></button>’; });
-h += ‘</div><button id="m-next" class="btn-main">التالي ←</button>’;
-} else {
-h += ‘<div style="text-align:center;margin-bottom:8px"><span style="font-size:22px">’+numIcon+’</span> <span style="color:#888;font-size:13px">’+esc(numLabel)+’</span></div>’;
-h += numDisplay(numVal, “#fff”, cur);
-h += numpadHTML();
-h += ‘<button id="m-save-item" class="btn-main" style="margin-bottom:8px">تأكيد ✓</button>’;
-h += ‘<button id="m-prev" style="width:100%;background:none;border:none;color:#555;font-size:13px;cursor:pointer;padding:8px">← رجوع</button>’;
-}
-
-} else if(modalKind===“editItem”){
-h += ‘<span style="font-size:16px;font-weight:800">✏️ تعديل</span>’;
-h += xBtn()+’</div>’;
-h += ‘<label class="lbl">الاسم</label><input id="m-label" class="inp" type="text" value="'+esc(numLabel)+'"/>’;
-h += numDisplay(numVal, “#fff”, cur);
-h += numpadHTML();
-h += ‘<button id="m-save-edit" class="btn-main">حفظ التعديل ✓</button>’;
-
-} else if(modalKind===“import”){
-h += ‘<span style="font-size:16px;font-weight:800">📥 استيراد</span>’;
-h += xBtn()+’</div>’;
-h += ‘<div style="font-size:12px;color:#888;margin-bottom:12px">الصق محتوى ملف JSON هنا:</div>’;
-h += ‘<textarea id="m-import-txt" style="width:100%;background:#1E2030;border:1.5px solid #2A2D3E;border-radius:11px;padding:12px;font-size:12px;color:#ccc;height:120px;resize:none;outline:none;margin-bottom:12px" placeholder="الصق JSON هنا..."></textarea>’;
-h += ‘<button id="m-do-import" class="btn-main">استيراد البيانات</button>’;
+  h+='</div>';
+  h+=buildModal();
+  return h;
 }
 
-return h;
+// ── ITEM ROW ──────────────────────────────────────────────
+function itemRow(item,cur,showPaid){
+  var h='<div class="irow" style="background:'+(showPaid&&item.paid?"#0d1f0d":"#1E2030")+';opacity:'+(showPaid&&item.paid?.75:1)+';border-right:3px solid '+(showPaid&&item.paid?"#06D6A0":item.color)+'">';
+  h+='<div style="display:flex;align-items:center;gap:8px;flex:1">';
+  if(showPaid){
+    h+='<button onclick="togglePaid(\''+item.id+'\')" style="background:'+(item.paid?"#06D6A033":"transparent")+';border:2px solid '+(item.paid?"#06D6A0":"#333")+';border-radius:99px;width:26px;height:26px;cursor:pointer;color:#06D6A0;font-size:13px;flex-shrink:0">'+(item.paid?"✓":"")+'</button>';
+  }
+  h+='<span style="font-size:18px">'+item.icon+'</span>';
+  h+='<div><div style="font-size:13px;color:'+(showPaid&&item.paid?"#555":"#ccc")+';text-decoration:'+(showPaid&&item.paid?"line-through":"none")+'">'+item.label+'</div>';
+  if(showPaid&&item.paid) h+='<div style="font-size:10px;color:#06D6A0">✓ مدفوع</div>';
+  h+='</div></div>';
+  h+='<div style="display:flex;align-items:center;gap:7px">';
+  h+='<span style="font-size:14px;font-weight:800;color:'+(showPaid&&item.paid?"#444":item.color)+'">'+item.amount.toLocaleString()+'</span>';
+  h+='<button onclick="openEdit(\''+item.id+'\',\''+(showPaid?"charge":"income")+'\')" style="background:#2A2D3E;border:none;border-radius:7px;width:26px;height:26px;font-size:12px;cursor:pointer;color:#777">✏️</button>';
+  h+='<button onclick="askDel(\''+item.id+'\',\''+(showPaid?"charge":"income")+'\')" style="background:#2A2D3E;border:none;border-radius:7px;width:26px;height:26px;font-size:13px;cursor:pointer;color:#555">🗑</button>';
+  h+='</div></div>';
+  return h;
 }
 
-function xBtn(){ return ‘<button id="m-close" style="background:#1E2030;border:none;border-radius:99px;width:30px;height:30px;color:#888;cursor:pointer;font-size:16px">✕</button>’; }
-function numDisplay(v, color, cur){ return ‘<div style=“font-size:36px;font-weight:900;color:’+(v?color:”#333”)+’;text-align:center;margin-bottom:10px”>’+(v||“0”)+’ <span style="font-size:13px;color:#555">’+cur+’</span></div>’; }
-function numpadHTML(){
-var h=’<div class="numpad">’;
-[“1”,“2”,“3”,“4”,“5”,“6”,“7”,“8”,“9”,”.”,“0”,“⌫”].forEach(function(k){
-h += ‘<button class=“nk’+(k===“⌫”?” del”:””)+’” data-nk=”’+k+’”>’+k+’</button>’;
-});
-return h+’</div>’;
+// ── NUMPAD ────────────────────────────────────────────────
+function numpad(){
+  var h='<div class="numpad">';
+  ["1","2","3","4","5","6","7","8","9",".","0","⌫"].forEach(function(k){
+    h+='<button class="nk'+(k==="⌫"?" del":"")+'" onclick="nkPress(\''+k+'\')">'+k+'</button>';
+  });
+  h+='</div>';
+  return h;
 }
 
-/* ════════════════════════════════════════
-EVENT WIRING
-════════════════════════════════════════ */
-function onMainClick(e){
-var t = e.target;
+// ── MODAL ─────────────────────────────────────────────────
+function buildModal(){
+  if(!modal) return "";
+  var h='<div class="modal-bg" onclick="bgClick(event)"><div class="modal">';
+  h+='<div class="row" style="margin-bottom:16px">';
 
-var chip = t.closest(”.chip[data-mk]”);
-if(chip){ curM=chip.dataset.mk; render(); return; }
+  if(modal==="savings"){
+    var md=gm(curM);
+    var surp=md.incomes.reduce(function(s,i){return s+i.amount;},0)-md.charges.reduce(function(s,c){return s+c.amount;},0);
+    h+='<span style="font-size:16px;font-weight:800">🏦 الادخار الشهري</span>';
+    h+='<button onclick="closeModal()" style="background:#1E2030;border:none;border-radius:99px;width:30px;height:30px;color:#888;cursor:pointer;font-size:16px">✕</button></div>';
+    h+='<div style="font-size:11px;color:#666;margin-bottom:6px">الفائض: <span style="color:#06D6A0;font-weight:700">'+Math.max(0,surp).toLocaleString()+' '+APP.currency+'</span></div>';
+    h+='<div style="font-size:36px;font-weight:900;color:'+(numVal?"#74B9FF":"#333")+';text-align:center;margin-bottom:10px">'+(numVal||"0")+' <span style="font-size:13px;color:#555">'+APP.currency+'</span></div>';
+    h+=numpad();
+    h+='<button onclick="saveSavings()" class="btn-main">حفظ الادخار</button>';
+  }
 
-if(t.id===“tab-charges”){ curTab=“charges”; render(); return; }
-if(t.id===“tab-income”) { curTab=“income”;  render(); return; }
-if(t.id===“tab-settings”){ curTab=“settings”; render(); return; }
+  else if(modal==="addCharge"||modal==="addIncome"){
+    h+='<span style="font-size:16px;font-weight:800">'+(modal==="addCharge"?"إضافة مصروف":"إضافة مصدر دخل")+'</span>';
+    h+='<button onclick="closeModal()" style="background:#1E2030;border:none;border-radius:99px;width:30px;height:30px;color:#888;cursor:pointer;font-size:16px">✕</button></div>';
+    if(numStep==="info"){
+      h+='<label class="lbl">الاسم</label><input id="nlbl" class="inp" type="text" placeholder="مثل: Diesel، Assurance..." value="'+numLabel+'" oninput="numLabel=this.value"/>';
+      h+='<label class="lbl">الأيقونة</label><div style="display:flex;flex-wrap:wrap;gap:6px;margin-bottom:12px">';
+      ICONS.forEach(function(ic){ h+='<button onclick="setIcon(\''+ic+'\')" style="background:'+(numIcon===ic?"#B8B5FF22":"#1E2030")+';border:2px solid '+(numIcon===ic?"#B8B5FF":"transparent")+';border-radius:9px;padding:7px 9px;font-size:19px;cursor:pointer">'+ic+'</button>'; });
+      h+='</div><label class="lbl">اللون</label><div style="display:flex;gap:7px;flex-wrap:wrap;margin-bottom:18px">';
+      COLS.forEach(function(c){ h+='<button onclick="setCol(\''+c+'\')" style="width:30px;height:30px;border-radius:99px;background:'+c+';border:'+(numCol===c?"3px solid #fff":"3px solid transparent")+';cursor:pointer"></button>'; });
+      h+='</div><button onclick="nextStep()" class="btn-main">التالي ←</button>';
+    } else {
+      h+='<div style="text-align:center;margin-bottom:8px"><span style="font-size:22px">'+numIcon+'</span> <span style="color:#888;font-size:13px">'+numLabel+'</span></div>';
+      h+='<div style="font-size:38px;font-weight:900;color:'+(numVal?"#fff":"#333")+';text-align:center;margin-bottom:10px">'+(numVal||"0")+' <span style="font-size:13px;color:#555">'+APP.currency+'</span></div>';
+      h+=numpad();
+      h+='<button onclick="saveItem()" class="btn-main" style="margin-bottom:8px">تأكيد ✓</button>';
+      h+='<button onclick="prevStep()" style="width:100%;background:none;border:none;color:#555;font-size:13px;cursor:pointer;font-family:Cairo,sans-serif;padding:8px">← رجوع</button>';
+    }
+  }
 
-var ccip = t.closest(”.cur-chip”);
-if(ccip){ APP.currency=ccip.dataset.cur; saveData(); render(); return; }
+  else if(modal==="editItem"){
+    h+='<span style="font-size:16px;font-weight:800">✏️ تعديل</span>';
+    h+='<button onclick="closeModal()" style="background:#1E2030;border:none;border-radius:99px;width:30px;height:30px;color:#888;cursor:pointer;font-size:16px">✕</button></div>';
+    h+='<label class="lbl">الاسم</label><input id="nlbl" class="inp" type="text" value="'+numLabel+'" oninput="numLabel=this.value"/>';
+    h+='<div style="font-size:36px;font-weight:900;color:'+(numVal?"#fff":"#333")+';text-align:center;margin-bottom:10px">'+(numVal||"0")+' <span style="font-size:13px;color:#555">'+APP.currency+'</span></div>';
+    h+=numpad();
+    h+='<button onclick="saveEdit()" class="btn-main">حفظ التعديل ✓</button>';
+  }
 
-if(t.id===“btn-open-savings”){
-numVal=String(peekM(curM).savings||””);
-openModal(“savings”); return;
+  else if(modal==="import"){
+    h+='<span style="font-size:16px;font-weight:800">📥 استيراد</span>';
+    h+='<button onclick="closeModal()" style="background:#1E2030;border:none;border-radius:99px;width:30px;height:30px;color:#888;cursor:pointer;font-size:16px">✕</button></div>';
+    h+='<div style="font-size:12px;color:#888;margin-bottom:12px">الصق محتوى ملف JSON هنا:</div>';
+    h+='<textarea id="itxt" style="width:100%;background:#1E2030;border:1.5px solid #2A2D3E;border-radius:11px;padding:12px;font-size:12px;color:#ccc;height:120px;resize:none;font-family:Cairo,sans-serif;outline:none;margin-bottom:12px" placeholder="الصق JSON هنا..."></textarea>';
+    h+='<button onclick="doImport()" class="btn-main">استيراد البيانات</button>';
+  }
+
+  else if(modal==="confirmClear"){
+    h+='<span style="font-size:16px;font-weight:800">⚠️ تأكيد الحذف</span>';
+    h+='<button onclick="closeModal()" style="background:#1E2030;border:none;border-radius:99px;width:30px;height:30px;color:#888;cursor:pointer;font-size:16px">✕</button></div>';
+    h+='<div style="font-size:14px;color:#ccc;text-align:center;margin:20px 0;line-height:1.8">هل أنت متأكد؟<br><span style="color:#FF6B6B;font-weight:700">سيتم حذف جميع البيانات نهائياً</span></div>';
+    h+='<div style="display:flex;gap:10px">';
+    h+='<button onclick="doClear()" style="flex:1;background:#FF6B6B;border:none;border-radius:13px;padding:14px;color:#fff;font-size:15px;font-weight:800;cursor:pointer;font-family:Cairo,sans-serif">نعم، احذف</button>';
+    h+='<button onclick="closeModal()" style="flex:1;background:#1E2030;border:none;border-radius:13px;padding:14px;color:#888;font-size:15px;cursor:pointer;font-family:Cairo,sans-serif">إلغاء</button>';
+    h+='</div>';
+  }
+
+  else if(modal==="confirmDel"){
+    h+='<span style="font-size:16px;font-weight:800">🗑️ حذف العنصر</span>';
+    h+='<button onclick="closeModal()" style="background:#1E2030;border:none;border-radius:99px;width:30px;height:30px;color:#888;cursor:pointer;font-size:16px">✕</button></div>';
+    h+='<div style="font-size:14px;color:#ccc;text-align:center;margin:20px 0">هل تريد حذف هذا العنصر؟</div>';
+    h+='<div style="display:flex;gap:10px">';
+    h+='<button onclick="doDelItem()" style="flex:1;background:#FF6B6B;border:none;border-radius:13px;padding:14px;color:#fff;font-size:15px;font-weight:800;cursor:pointer;font-family:Cairo,sans-serif">نعم، احذف</button>';
+    h+='<button onclick="closeModal()" style="flex:1;background:#1E2030;border:none;border-radius:13px;padding:14px;color:#888;font-size:15px;cursor:pointer;font-family:Cairo,sans-serif">إلغاء</button>';
+    h+='</div>';
+  }
+
+  h+='</div></div>';
+  return h;
 }
 
-if(t.id===“btn-add-charge”){
-numVal=””;numLabel=””;numIcon=“📦”;numColor=”#B8B5FF”;modalStep=“info”;
-openModal(“addCharge”); return;
-}
-if(t.id===“btn-add-income”){
-numVal=””;numLabel=””;numIcon=“💼”;numColor=”#06D6A0”;modalStep=“info”;
-openModal(“addIncome”); return;
+// ── BIND (only textarea needs event listener) ─────────────
+function bind(){
+  // nothing needed - all actions use onclick inline
 }
 
-/* toggle paid */
-var tb = t.closest(”.toggle-paid-btn”);
-if(tb){
-var id=tb.dataset.id;
-var md=deepClone(APP.months[curM]||initMonth());
-md.charges=md.charges.map(function(c){ return c.id===id ? Object.assign({},c,{paid:!c.paid}) : c; });
-APP.months[curM]=md; saveData(); render(); return;
+// ── ACTIONS ───────────────────────────────────────────────
+function setCurM(mk){ curM=mk; render(); }
+function setTab(t){ curTab=t; render(); }
+function setCur(c){ APP.currency=c; save(); render(); }
+function openModal(m){ modal=m; numVal=""; render(); }
+function closeModal(){ modal=null; render(); }
+function bgClick(e){ if(e.target===e.currentTarget){ modal=null; render(); } }
+
+function togglePaid(id){
+  var md=gm(curM);
+  md.charges=md.charges.map(function(c){ return c.id===id ? Object.assign({},c,{paid:!c.paid}) : c; });
+  APP.months[curM]=md;
+  save();
+  render();
 }
 
-/* edit item */
-var eb = t.closest(”.edit-btn”);
-if(eb){
-var id=eb.dataset.id, type=eb.dataset.type;
-var src = type===“charge” ? peekM(curM).charges : peekM(curM).incomes;
-var item = src.find(function(x){return x.id===id;});
-if(!item) return;
-editItem=deepClone(item); editType=type;
-numVal=String(item.amount); numLabel=item.label; numIcon=item.icon; numColor=item.color;
-openModal(“editItem”); return;
+function nkPress(k){
+  if(k==="⌫"){ numVal=numVal.slice(0,-1); }
+  else if(k==="."&&numVal.includes(".")){ return; }
+  else if(numVal.length>=9){ return; }
+  else{ numVal+=k; }
+  render();
 }
 
-/* ─── FIX: delete item uses custom confirm ─── */
-var db = t.closest(”.del-btn”);
-if(db){
-var id=db.dataset.id, type=db.dataset.type;
-showConfirm(“حذف العنصر”, “هل أنت متأكد من حذف هذا العنصر؟”, function(){
-var md=deepClone(APP.months[curM]||initMonth());
-if(type===“charge”) md.charges=md.charges.filter(function(x){return x.id!==id;});
-else                 md.incomes=md.incomes.filter(function(x){return x.id!==id;});
-APP.months[curM]=md; saveData(); toast(“تم الحذف”,“e”); render();
-});
-return;
+function setIcon(ic){ numIcon=ic; render(); }
+function setCol(c){ numCol=c; render(); }
+
+function nextStep(){
+  if(!numLabel.trim()){ toast("أدخل الاسم أولاً","e"); return; }
+  numStep="amount"; numVal=""; render();
+}
+function prevStep(){ numStep="info"; render(); }
+
+function saveItem(){
+  var v=parseFloat(numVal);
+  if(!numLabel.trim()){ toast("أدخل الاسم","e"); return; }
+  if(isNaN(v)||v<=0){ toast("أدخل مبلغاً صحيحاً","e"); return; }
+  var md=gm(curM);
+  var ni={id:Date.now()+"",label:numLabel.trim(),amount:v,icon:numIcon,color:numCol,paid:false};
+  if(modal==="addCharge") md.charges.push(ni);
+  else md.incomes.push(ni);
+  APP.months[curM]=md;
+  save(); modal=null; numStep="info";
+  toast("تمت الإضافة ✓"); render();
 }
 
-/* export */
-if(t.id===“btn-export”){
-var b=new Blob([JSON.stringify(APP,null,2)],{type:“application/json”});
-var u=URL.createObjectURL(b), a=document.createElement(“a”), d=new Date();
-a.href=u; a.download=“masarifi_”+d.getFullYear()+”-”+(d.getMonth()+1)+”-”+d.getDate()+”.json”;
-a.click(); URL.revokeObjectURL(u); toast(“تم التصدير ✓”); return;
+function saveSavings(){
+  var v=parseFloat(numVal)||0;
+  var md=gm(curM);
+  var sp=md.incomes.reduce(function(s,i){return s+i.amount;},0)-md.charges.reduce(function(s,c){return s+c.amount;},0);
+  if(v>sp&&sp>0) toast("يتجاوز الفائض المتاح!","w");
+  md.savings=v; APP.months[curM]=md;
+  save(); modal=null;
+  toast("تم حفظ الادخار ✓"); render();
 }
 
-if(t.id===“btn-import”){ openModal(“import”); return; }
+function openEdit(id,type){
+  var md=gm(curM);
+  var arr=type==="charge"?md.charges:md.incomes;
+  var item=arr.find(function(x){return x.id===id;});
+  if(!item) return;
+  editId=id; editType=type;
+  numVal=String(item.amount); numLabel=item.label; numIcon=item.icon; numCol=item.color;
+  modal="editItem"; render();
+}
 
-/* ─── FIX: clear all uses custom confirm ─── */
-if(t.id===“btn-clear”){
-showConfirm(
-“🗑️ مسح جميع البيانات”,
-“سيتم حذف جميع البيانات نهائياً ولا يمكن التراجع. هل أنت متأكد؟”,
-function(){
-clearAll();
-curTab = “charges”;
-curM   = new Date().toISOString().slice(0,7);
-toast(“تم مسح جميع البيانات ✓”,“e”);
+function saveEdit(){
+  var v=parseFloat(numVal);
+  if(isNaN(v)||v<=0){ toast("أدخل مبلغاً صحيحاً","e"); return; }
+  var md=gm(curM);
+  var arr=editType==="charge"?md.charges:md.incomes;
+  arr=arr.map(function(x){ return x.id===editId ? Object.assign({},x,{label:numLabel||x.label,amount:v,icon:numIcon,color:numCol}) : x; });
+  if(editType==="charge") md.charges=arr; else md.incomes=arr;
+  APP.months[curM]=md; save(); modal=null;
+  toast("تم الحفظ ✓"); render();
+}
+
+function askDel(id,type){
+  pendingDelId=id; pendingDelType=type;
+  modal="confirmDel"; render();
+}
+
+function doDelItem(){
+  var md=gm(curM);
+  if(pendingDelType==="charge") md.charges=md.charges.filter(function(x){return x.id!==pendingDelId;});
+  else md.incomes=md.incomes.filter(function(x){return x.id!==pendingDelId;});
+  APP.months[curM]=md; save(); modal=null;
+  toast("تم الحذف","e"); render();
+}
+
+function doClear(){
+  APP={currency:"MAD",months:{}}; save(); modal=null;
+  toast("تم مسح جميع البيانات","e"); render();
+}
+
+function doExport(){
+  var d=new Date();
+  var blob=new Blob([JSON.stringify(APP,null,2)],{type:"application/json"});
+  var url=URL.createObjectURL(blob);
+  var a=document.createElement("a");
+  a.href=url; a.download="masarifi_"+d.getFullYear()+"-"+(d.getMonth()+1)+"-"+d.getDate()+".json";
+  a.click(); URL.revokeObjectURL(url);
+  toast("تم التصدير ✓");
+}
+
+function doImport(){
+  var txt=document.getElementById("itxt");
+  if(!txt||!txt.value.trim()){ toast("الصق البيانات أولاً","e"); return; }
+  try{
+    var imp=JSON.parse(txt.value.trim());
+    if(!imp.months){ toast("ملف غير صالح","e"); return; }
+    APP=imp; save(); modal=null;
+    toast("تم الاستيراد بنجاح ✓"); render();
+  }catch(e){ toast("خطأ في الملف","e"); }
+}
+
+// ── START ─────────────────────────────────────────────────
 render();
-}
-);
-return;
-}
-}
-
-function onModalClick(e){
-var t = e.target;
-
-if(t.id===“modal-overlay”){ closeModal(); return; }
-if(t.id===“m-close”){ closeModal(); return; }
-
-var nk = t.closest(”.nk”);
-if(nk){
-var k=nk.dataset.nk;
-if(k===“⌫”)                         numVal=numVal.slice(0,-1);
-else if(k===”.”&&numVal.includes(”.”)) return;
-else if(numVal.length>=9)            return;
-else                                 numVal+=k;
-redrawModal(); return;
-}
-
-var ib = t.closest(”.icon-btn”);
-if(ib){ numIcon=ib.dataset.ic; redrawModal(); return; }
-
-var cb = t.closest(”.color-btn”);
-if(cb){ numColor=cb.dataset.col; redrawModal(); return; }
-
-if(t.id===“m-next”){
-var lbl=document.getElementById(“m-label”); if(lbl) numLabel=lbl.value.trim();
-if(!numLabel){ toast(“أدخل الاسم أولاً”,“e”); return; }
-modalStep=“amount”; numVal=””; redrawModal(); return;
-}
-
-if(t.id===“m-prev”){ modalStep=“info”; redrawModal(); return; }
-
-if(t.id===“m-save-savings”){
-var v=parseFloat(numVal)||0;
-var md=deepClone(APP.months[curM]||initMonth());
-var sp=md.incomes.reduce(function(s,x){return s+x.amount;},0)-md.charges.reduce(function(s,x){return s+x.amount;},0);
-if(v>sp&&sp>0) toast(“يتجاوز الفائض المتاح!”,“w”);
-md.savings=v; APP.months[curM]=md; saveData();
-closeModal(); toast(“تم حفظ الادخار ✓”); render(); return;
-}
-
-if(t.id===“m-save-item”){
-var lbl=document.getElementById(“m-label”); if(lbl) numLabel=lbl.value.trim();
-var v=parseFloat(numVal);
-if(!numLabel){ toast(“أدخل الاسم”,“e”); return; }
-if(isNaN(v)||v<=0){ toast(“أدخل مبلغاً صحيحاً”,“e”); return; }
-var ni={id:uid(), label:numLabel, amount:v, icon:numIcon, color:numColor, paid:false};
-var md=deepClone(APP.months[curM]||initMonth());
-if(modalKind===“addCharge”) md.charges.push(ni);
-else                        md.incomes.push(ni);
-APP.months[curM]=md; saveData();
-closeModal(); toast(“تمت الإضافة ✓”); render(); return;
-}
-
-if(t.id===“m-save-edit”){
-var lbl=document.getElementById(“m-label”); if(lbl) numLabel=lbl.value.trim();
-var v=parseFloat(numVal);
-if(isNaN(v)||v<=0){ toast(“أدخل مبلغاً صحيحاً”,“e”); return; }
-var md=deepClone(APP.months[curM]||initMonth());
-var arr=editType===“charge”?md.charges:md.incomes;
-var upd=arr.map(function(x){
-return x.id===editItem.id ? Object.assign({},x,{label:numLabel||x.label,amount:v,icon:numIcon,color:numColor}) : x;
-});
-if(editType===“charge”) md.charges=upd; else md.incomes=upd;
-APP.months[curM]=md; saveData();
-closeModal(); toast(“تم الحفظ ✓”); render(); return;
-}
-
-if(t.id===“m-do-import”){
-var txt=document.getElementById(“m-import-txt”);
-if(!txt||!txt.value.trim()){ toast(“الصق البيانات أولاً”,“e”); return; }
-try{
-var imp=JSON.parse(txt.value.trim());
-if(!imp.months){ toast(“ملف غير صالح”,“e”); return; }
-APP=imp; saveData(); closeModal(); toast(“تم الاستيراد ✓”); render();
-}catch(e){ toast(“خطأ في الملف”,“e”); }
-return;
-}
-}
-
-/* ════════════════════════════════════════
-ATTACH LISTENERS  (once)
-════════════════════════════════════════ */
-document.getElementById(“main”).addEventListener(“click”, onMainClick);
-document.getElementById(“modal-overlay”).addEventListener(“click”, onModalClick);
-
-/* ════════════════════════════════════════
-START
-════════════════════════════════════════ */
-render();
+setTimeout(function(){ autoBackup(); }, 3000);
 </script>
-
 </body>
 </html>
