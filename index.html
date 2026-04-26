@@ -184,7 +184,14 @@ var h=’<div style="background:linear-gradient(160deg,#1a1d2e,#0F1117);padding:
 // Month tabs
 h+=’<div style="display:flex;gap:7px;overflow-x:auto;padding:0 20px 12px" id="mtabs">’;
 visMonths.forEach(function(mk){
-h+=’<div class=“chip’+(curM===mk?” on”:””)+’” data-mk=”’+mk+’”>’+mkShort(mk)+’</div>’;
+var tm=todayMonth();
+var prev=ALL_MONTHS[ALL_MONTHS.indexOf(tm)-1];
+var next=ALL_MONTHS[ALL_MONTHS.indexOf(tm)+1];
+var chipColor= mk===tm?“border-color:#06D6A0;color:#06D6A0;background:#06D6A015”:
+mk===prev?“border-color:#FF6B6B;color:#FF6B6B;background:#FF6B6B15”:
+mk===next?“border-color:#FFD166;color:#FFD166;background:#FFD16615”:
+curM===mk?“border-color:#B8B5FF;color:#B8B5FF;background:#B8B5FF15”:””;
+h+=’<div class="chip" style="'+chipColor+'" data-mk="'+mk+'">’+mkShort(mk)+’</div>’;
 });
 h+=’</div>’;
 
