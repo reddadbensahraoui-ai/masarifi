@@ -52,15 +52,16 @@ var APP = (function(){ try{ var r=localStorage.getItem(SK); if(r) return JSON.pa
 function save(){ try{ localStorage.setItem(SK,JSON.stringify(APP)); }catch(e){ toast("تعذر الحفظ!","e"); } }
 
 var DC = [
-  {id:"home_crd",label:"HOME Crd",amount:2632,icon:"🏠",color:"#FF6B6B"},
-  {id:"car",label:"CAR",amount:2570,icon:"🚗",color:"#4ECDC4"},
-  {id:"charge_m",label:"Charge Du Mois",amount:3500,icon:"🛒",color:"#FFE66D"},
-  {id:"crd_mois",label:"Crd MOIS",amount:5000,icon:"💳",color:"#B8B5FF"},
-  {id:"ecole",label:"ECOLE",amount:950,icon:"🎓",color:"#A8E6CF"},
-  {id:"cantine",label:"Cantine",amount:520,icon:"🍽️",color:"#FF8B94"},
-  {id:"parent",label:"Parent Give",amount:1000,icon:"❤️",color:"#FF8B94"},
-  {id:"rak",label:"RAK",amount:300,icon:"🏦",color:"#06D6A0"},
-  {id:"int",label:"INT",amount:250,icon:"📄",color:"#FFDAB9"}
+  {id:"darts",      label:"Darts",                  amount:5000, icon:"🎯", color:"#FF8B94",  skipMonths:[]},
+  {id:"charge_m",   label:"Charge Du Mois",          amount:3500, icon:"🛒", color:"#FFE66D",  skipMonths:[]},
+  {id:"reddad",     label:"Reddad Charge",           amount:3500, icon:"👤", color:"#B8B5FF",  skipMonths:[]},
+  {id:"home_crd",   label:"HOME CREDIT",             amount:2632, icon:"🏠", color:"#FF6B6B",  skipMonths:[]},
+  {id:"parent",     label:"Parents Give",            amount:1000, icon:"❤️", color:"#FF8B94",  skipMonths:[]},
+  {id:"ecole",      label:"Ecole Med-Yasser",        amount:950,  icon:"🎓", color:"#A8E6CF",  skipMonths:["07","08"]},
+  {id:"internet",   label:"INTERNET",                amount:250,  icon:"📶", color:"#4ECDC4",  skipMonths:[]},
+  {id:"rak",        label:"RAK (EAU & ÉLECTRICITÉ)", amount:230,  icon:"💡", color:"#06D6A0",  skipMonths:[]},
+  {id:"assurance",  label:"Assurance Voiture",          amount:4500, icon:"🚗", color:"#FF6B6B",  skipMonths:[], onlyMonths:["03"]},
+  {id:"vignette",   label:"Vignette DUSTER",            amount:700,  icon:"📋", color:"#FFD166",  skipMonths:[], onlyMonths:["01"]}
 ];
 var DI = [
   {id:"sal",label:"الراتب",amount:21128,icon:"💼",color:"#06D6A0"},
@@ -70,10 +71,37 @@ var ICONS=["📦","🚗","🛒","💊","🎓","🍽️","❤️","🏦","📄","
 var COLS=["#FF6B6B","#4ECDC4","#FFE66D","#B8B5FF","#A8E6CF","#FF8B94","#06D6A0","#FFDAB9","#FFD166","#74B9FF","#fd79a8","#00cec9"];
 var CURRS=["MAD","DZD","TND","SAR","AED","USD","EUR"];
 
-function newMonth(){
+function getMonthKey(offset){
+  var d=new Date();
+  if(d.getDate()>=27) d.setMonth(d.getMonth()+1);
+  d.setMonth(d.getMonth()+offset);
+  return d.getFullYear()+"-"+(d.getMonth()<9?"0":"")+(d.getMonth()+1);
+}
+
+function getDeficit(mk){
+  // Get previous month key
+  var idx=ALL.indexOf(mk);
+  if(idx<=0) return 0;
+  var prevMk=ALL[idx-1];
+  if(!APP.months[prevMk]) return 0;
+  var pm=APP.months[prevMk];
+  var ti=pm.incomes.reduce(function(s,i){return s+i.amount;},0);
+  var tc=pm.charges.reduce(function(s,c){return s+c.amount;},0);
+  var surp=ti-tc;
+  return surp<0?Math.abs(surp):0; // only carry deficit, not surplus
+}
+
+function newMonth(mk){
+  var mo=mk?(mk.split("-")[1]):"00";
+  var charges=[];
+  DC.forEach(function(c){
+    if(c.skipMonths&&c.skipMonths.indexOf(mo)!==-1) return;
+    if(c.onlyMonths&&c.onlyMonths.indexOf(mo)===-1) return;
+    charges.push({id:c.id,label:c.label,amount:c.amount,icon:c.icon,color:c.color,paid:false});
+  });
   return {
     incomes: DI.map(function(i){ return {id:i.id,label:i.label,amount:i.amount,icon:i.icon,color:i.color}; }),
-    charges: DC.map(function(c){ return {id:c.id,label:c.label,amount:c.amount,icon:c.icon,color:c.color,paid:false}; }),
+    charges: charges,
     savings: 0
   };
 }
@@ -89,10 +117,29 @@ function gen10Y(){
 var ALL = gen10Y();
 
 function td(){ return new Date().toISOString().slice(0,10); }
-function tm(){ return td().slice(0,7); }
+function tm(){
+  var d=new Date();
+  // After 27th, we are in "next month's budget cycle"
+  if(d.getDate()>=27){
+    d.setMonth(d.getMonth()+1);
+  }
+  return d.getFullYear()+"-"+(d.getMonth()<9?"0":"")+(d.getMonth()+1);
+}
 function mlabel(mk){ var p=mk.split("-"); return new Date(p[0],p[1]-1,1).toLocaleDateString("ar-MA",{month:"long",year:"numeric"}); }
 function mshort(mk){ return new Date(mk+"-01").toLocaleDateString("ar-MA",{month:"short",year:"2-digit"}); }
-function gm(k){ if(!APP.months[k]) APP.months[k]=newMonth(); return APP.months[k]; }
+function gm(k){
+  if(!APP.months[k]) APP.months[k]=newMonth(k);
+  var m=APP.months[k];
+  // Remove any previously injected deficit entry
+  m.incomes=m.incomes.filter(function(i){return i.id!=="deficit_deduct";});
+  // Get deficit from previous month
+  var d=getDeficit(k);
+  if(d>0){
+    // Add deficit as a negative income entry so it reduces total income
+    m.incomes.push({id:"deficit_deduct",label:"عجز الشهر السابق (مُرحّل)",amount:-d,icon:"⚠️",color:"#FF6B6B"});
+  }
+  return m;
+}
 
 // ── STATE ─────────────────────────────────────────────────
 var curM  = tm();
@@ -171,17 +218,28 @@ function page(){
 
   // summary
   h+='<div style="padding:0 20px 14px">';
-  h+='<div style="font-size:11px;color:#555;margin-bottom:8px">'+mlabel(curM)+'</div>';
+  var now2=new Date();
+  var fullDate=now2.toLocaleDateString("ar-MA",{weekday:"long",day:"numeric",month:"long",year:"numeric"});
+  h+='<div style="font-size:12px;color:#888;margin-bottom:8px">📅 '+fullDate+'</div>';
   h+='<div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:10px">';
   h+='<div class="card" style="margin-bottom:0"><div style="font-size:10px;color:#555;margin-bottom:3px">💰 الدخل</div><div style="font-size:20px;font-weight:900;color:#06D6A0">'+tInc.toLocaleString()+'</div><div style="font-size:9px;color:#444">'+cur+'</div></div>';
   h+='<div class="card" style="margin-bottom:0"><div style="font-size:10px;color:#555;margin-bottom:3px">📤 المصاريف</div><div style="font-size:20px;font-weight:900;color:#FF8B94">'+tChg.toLocaleString()+'</div><div style="font-size:9px;color:#444">'+cur+'</div></div>';
   h+='</div>';
   var sc=surp>=0?"#06D6A0":"#FF6B6B";
+  var deficit=surp<0?Math.abs(surp):0;
+  // Check if THIS month has a deficit carried from previous month
+  var prevDeficit=getDeficit(curM);
   h+='<div class="card" style="margin-bottom:8px">';
   h+='<div class="row" style="margin-bottom:6px"><span style="font-size:11px;color:#666">الفائض / العجز</span>';
   h+='<span style="font-size:18px;font-weight:900;color:'+sc+'">'+(surp>=0?"+":"")+surp.toLocaleString()+' '+cur+'</span></div>';
   h+='<div class="bar-t"><div class="bar-f" style="width:'+(tInc>0?Math.min((tChg/tInc)*100,100):0)+'%;background:'+sc+'"></div></div>';
   h+='<div class="row" style="margin-top:3px;font-size:9px;color:#444"><span>مدفوع: '+paid.toLocaleString()+'</span><span>متبقي: '+(tChg-paid).toLocaleString()+'</span></div>';
+  if(deficit>0){
+    h+='<div style="margin-top:8px;background:#FF6B6B15;border-radius:8px;padding:7px 10px;font-size:11px;color:#FF8B94">⚠️ سيُخصم عجز '+deficit.toLocaleString()+' '+cur+' من ميزانية الشهر القادم تلقائياً</div>';
+  }
+  if(prevDeficit>0){
+    h+='<div style="margin-top:8px;background:#FF6B6B15;border-radius:8px;padding:7px 10px;font-size:11px;color:#FF8B94">⚠️ عجز مُرحّل من الشهر الماضي: '+prevDeficit.toLocaleString()+' '+cur+'</div>';
+  }
   h+='</div>';
   var sv=md.savings||0;
   h+='<div class="card" style="border:1.5px solid '+(sv>0?"#74B9FF44":"#2A2D3E")+';background:'+(sv>0?"#0a1f2a":"#1E2030")+'">';
@@ -222,7 +280,11 @@ function page(){
   // ── SETTINGS TAB
   if(curTab==="settings"){
     h+='<div class="card"><div style="font-size:11px;color:#444;margin-bottom:9px">العملة</div><div style="display:flex;flex-wrap:wrap;gap:7px">';
-    CURRS.forEach(function(c){ h+='<div class="chip'+(APP.currency===c?" on":"")+'" onclick="setCur(\''+c+'\')">'+c+'</div>'; });
+    CURRS.forEach(function(c){
+      var sel=APP.currency===c;
+      var st=sel?'border:1.5px solid #B8B5FF;color:#B8B5FF;background:#B8B5FF15':'';
+      h+='<span id="cur_'+c+'" onclick="selCur(this)" data-c="'+c+'" style="display:inline-block;padding:5px 13px;border-radius:99px;font-size:11px;cursor:pointer;'+st+'">'+c+'</span>';
+    });
     h+='</div></div>';
     h+='<div class="card"><div style="font-size:11px;color:#444;margin-bottom:10px">ملخص الأشهر</div>';
     Object.keys(APP.months).sort().forEach(function(mk){
@@ -260,7 +322,7 @@ function itemRow(item,cur,showPaid){
   if(showPaid&&item.paid) h+='<div style="font-size:10px;color:#06D6A0">✓ مدفوع</div>';
   h+='</div></div>';
   h+='<div style="display:flex;align-items:center;gap:7px">';
-  h+='<span style="font-size:14px;font-weight:800;color:'+(showPaid&&item.paid?"#444":item.color)+'">'+item.amount.toLocaleString()+'</span>';
+  h+='<span style="font-size:14px;font-weight:800;color:'+(showPaid&&item.paid?"#444":item.color)+'">'+item.amount.toLocaleString()+' '+cur+'</span>';
   h+='<button onclick="openEdit(\''+item.id+'\',\''+(showPaid?"charge":"income")+'\')" style="background:#2A2D3E;border:none;border-radius:7px;width:26px;height:26px;font-size:12px;cursor:pointer;color:#777">✏️</button>';
   h+='<button onclick="askDel(\''+item.id+'\',\''+(showPaid?"charge":"income")+'\')" style="background:#2A2D3E;border:none;border-radius:7px;width:26px;height:26px;font-size:13px;cursor:pointer;color:#555">🗑</button>';
   h+='</div></div>';
@@ -355,14 +417,14 @@ function buildModal(){
 }
 
 // ── BIND (only textarea needs event listener) ─────────────
-function bind(){
-  // nothing needed - all actions use onclick inline
-}
+function bind(){}
 
 // ── ACTIONS ───────────────────────────────────────────────
 function setCurM(mk){ curM=mk; render(); }
+function selMonth(el){ setCurM(el.dataset.m); }
 function setTab(t){ curTab=t; render(); }
 function setCur(c){ APP.currency=c; save(); render(); }
+function selCur(el){ setCur(el.dataset.c); }
 function openModal(m){ modal=m; numVal=""; render(); }
 function closeModal(){ modal=null; render(); }
 function bgClick(e){ if(e.target===e.currentTarget){ modal=null; render(); } }
