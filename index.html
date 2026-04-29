@@ -448,6 +448,52 @@ function page(){
       });
     }
     h+='</div>';
+    // ── NOTIFICATIONS CARD
+    var notifSupported=('Notification' in window);
+    var notifGranted=notifSupported&&Notification.permission==="granted";
+    var notifDenied=notifSupported&&Notification.permission==="denied";
+    var nOn=localStorage.getItem("masarifi_notif")==="1";
+    var nInterval=parseInt(localStorage.getItem("masarifi_notif_interval")||"60");
+    var intervalOptions=[
+      {val:15,  label:"كل 15 دقيقة"},
+      {val:30,  label:"كل 30 دقيقة"},
+      {val:60,  label:"كل ساعة"},
+      {val:120, label:"كل ساعتين"},
+      {val:180, label:"كل 3 ساعات"},
+      {val:360, label:"كل 6 ساعات"}
+    ];
+    h+='<div class="card" style="border:1px solid #B8B5FF22">';
+    h+='<div style="font-size:11px;color:#B8B5FF;margin-bottom:8px;font-weight:700">🔔 تذكير المصاريف غير المدفوعة</div>';
+    if(!notifSupported){
+      h+='<div style="font-size:11px;color:#555">المتصفح لا يدعم الإشعارات</div>';
+    } else if(notifDenied){
+      h+='<div style="font-size:11px;color:#FF8B94;line-height:1.7">تم رفض الإشعارات ✗<br><span style="color:#555">أعد تفعيلها من إعدادات المتصفح يدوياً</span></div>';
+    } else if(!notifGranted){
+      h+='<div style="font-size:11px;color:#666;margin-bottom:10px;line-height:1.7">تذكير دوري بالمصاريف غير المدفوعة للشهر الحالي، طالما التطبيق مفتوح</div>';
+      h+='<button onclick="enableNotifs()" style="width:100%;background:#B8B5FF15;border:1.5px solid #B8B5FF44;border-radius:12px;padding:11px;color:#B8B5FF;font-size:13px;font-weight:700;cursor:pointer;font-family:Cairo,sans-serif">🔔 تفعيل التذكيرات</button>';
+    } else {
+      // Toggle row
+      h+='<div class="row" style="margin-bottom:12px">';
+      h+='<span style="font-size:12px;color:#888">تفعيل التذكيرات</span>';
+      h+='<button onclick="toggleNotifs()" style="background:'+(nOn?"#06D6A0":"#2A2D3E")+';border:none;border-radius:99px;width:48px;height:26px;cursor:pointer;position:relative;transition:background .3s">';
+      h+='<span style="position:absolute;top:3px;'+(nOn?"left:3px":"right:3px")+';width:20px;height:20px;background:#fff;border-radius:99px;display:block;transition:all .3s"></span></button>';
+      h+='</div>';
+      // Interval selector — always visible
+      h+='<div style="font-size:11px;color:#666;margin-bottom:8px">⏱️ فترة التذكير</div>';
+      h+='<div style="display:flex;flex-wrap:wrap;gap:7px;margin-bottom:10px">';
+      intervalOptions.forEach(function(opt){
+        var sel=nInterval===opt.val;
+        h+='<button onclick="setNotifInterval('+opt.val+')" style="background:'+(sel?"#B8B5FF22":"#1E2030")+';border:1.5px solid '+(sel?"#B8B5FF":"#2A2D3E")+';border-radius:99px;padding:5px 12px;font-size:11px;color:'+(sel?"#B8B5FF":"#666")+';cursor:pointer;font-family:Cairo,sans-serif;font-weight:'+(sel?"700":"400")+'">'+(sel?"✓ ":"")+opt.label+'</button>';
+      });
+      h+='</div>';
+      if(nOn){
+        var selLabel=intervalOptions.find(function(o){return o.val===nInterval;})||intervalOptions[2];
+        h+='<div style="font-size:10px;color:#06D6A0">✓ مفعّل — تذكير '+selLabel.label+' طالما التطبيق مفتوح</div>';
+      } else {
+        h+='<div style="font-size:10px;color:#555">موقوف — فعّل المفتاح لبدء التذكيرات</div>';
+      }
+    }
+    h+='</div>';
     h+='<div class="card"><div style="font-size:11px;color:#444;margin-bottom:10px">💾 النسخ الاحتياطي</div>';
     h+='<div style="font-size:11px;color:#555;margin-bottom:10px;line-height:1.7">بياناتك على هاتفك فقط ✅<br>لا ترسل لأي خادم 🔒<br>نسخة احتياطية تلقائية كل شهر</div>';
     h+='<button onclick="doExport()" style="width:100%;background:#0a1f2a;border:1.5px solid #74B9FF44;border-radius:12px;padding:12px;color:#74B9FF;font-size:13px;font-weight:700;cursor:pointer;font-family:Cairo,sans-serif;margin-bottom:8px">📤 تصدير نسخة احتياطية</button>';
@@ -475,7 +521,7 @@ function itemRow(item,cur,showPaid,locked){
   }
   h+='<span style="font-size:18px">'+item.icon+'</span>';
   h+='<div><div style="font-size:13px;color:'+(showPaid&&item.paid?"#555":"#ccc")+';text-decoration:'+(showPaid&&item.paid?"line-through":"none")+'">'+item.label+'</div>';
-  if(showPaid&&item.paid) h+='<div style="font-size:10px;color:#06D6A0">✓ مدفوع</div>';
+  if(showPaid&&item.paid) h+='<div style="font-size:10px;color:#06D6A0">✓ مدفوع'+(item.paidAt?' — <span style="color:#3a7a5a">'+item.paidAt+'</span>':'')+'</div>';
   h+='</div></div>';
   h+='<div style="display:flex;align-items:center;gap:7px">';
   h+='<span style="font-size:14px;font-weight:800;color:'+(showPaid&&item.paid?"#444":item.color)+'">'+item.amount.toLocaleString()+' '+cur+'</span>';
@@ -636,7 +682,14 @@ function bgClick(e){ if(e.target===e.currentTarget){ modal=null; render(); } }
 function togglePaid(id){
   if(guardLocked()) return;
   var md=gm(curM);
-  md.charges=md.charges.map(function(c){ return c.id===id ? Object.assign({},c,{paid:!c.paid}) : c; });
+  md.charges=md.charges.map(function(c){
+    if(c.id!==id) return c;
+    var nowPaid=!c.paid;
+    return Object.assign({},c,{
+      paid: nowPaid,
+      paidAt: nowPaid ? new Date().toLocaleString("ar-MA",{day:"2-digit",month:"2-digit",year:"numeric",hour:"2-digit",minute:"2-digit"}) : null
+    });
+  });
   APP.months[curM]=md;
   save();
   render();
@@ -817,6 +870,92 @@ function reLockNow(){
   reLock(); toast("تم إعادة القفل 🔒"); render();
 }
 
+// ── NOTIFICATIONS ─────────────────────────────────────────
+var _notifTimer = null;
+
+function getUnpaidList(){
+  var md = gm(tm());
+  return md.charges.filter(function(c){ return !c.paid; });
+}
+
+function fireUnpaidNotif(){
+  var unpaid = getUnpaidList();
+  if(!unpaid.length) return;
+  var cur = APP.currency;
+  var total = unpaid.reduce(function(s,c){ return s+c.amount; }, 0);
+  var body = unpaid.slice(0,5).map(function(c){
+    return c.icon+" "+c.label+" — "+c.amount.toLocaleString()+" "+cur;
+  }).join("\n");
+  if(unpaid.length>5) body += "\n…و"+(unpaid.length-5)+" آخرين";
+  body += "\n\nالمجموع: "+total.toLocaleString()+" "+cur;
+  try{
+    new Notification("🔔 مصاريفي — "+unpaid.length+" مصروف غير مدفوع", {
+      body: body,
+      icon: "data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 64 64'><rect width='64' height='64' rx='16' fill='%230F1117'/><text y='44' x='8' font-size='40'>💸</text></svg>",
+      tag: "masarifi-unpaid",
+      renotify: true
+    });
+  }catch(e){}
+}
+
+function startNotifTimer(){
+  stopNotifTimer();
+  if(localStorage.getItem("masarifi_notif")!=="1") return;
+  if(Notification.permission!=="granted") return;
+  var minutes = parseInt(localStorage.getItem("masarifi_notif_interval")||"60");
+  var ms = minutes * 60 * 1000;
+  // Fire immediately on start, then every chosen interval
+  fireUnpaidNotif();
+  _notifTimer = setInterval(function(){
+    if(localStorage.getItem("masarifi_notif")==="1"){
+      fireUnpaidNotif();
+    } else {
+      stopNotifTimer();
+    }
+  }, ms);
+}
+
+function stopNotifTimer(){
+  if(_notifTimer){ clearInterval(_notifTimer); _notifTimer=null; }
+}
+
+function setNotifInterval(minutes){
+  localStorage.setItem("masarifi_notif_interval", String(minutes));
+  // Restart timer with new interval if active
+  if(localStorage.getItem("masarifi_notif")==="1" && Notification.permission==="granted"){
+    startNotifTimer();
+    toast("فترة التذكير: كل "+minutes+" دقيقة");
+  }
+  render();
+}
+
+function enableNotifs(){
+  Notification.requestPermission().then(function(perm){
+    if(perm==="granted"){
+      localStorage.setItem("masarifi_notif","1");
+      startNotifTimer();
+      toast("تم تفعيل التذكيرات 🔔");
+    } else {
+      toast("تم رفض الإشعارات","e");
+    }
+    render();
+  });
+}
+
+function toggleNotifs(){
+  var cur = localStorage.getItem("masarifi_notif")==="1";
+  if(cur){
+    localStorage.setItem("masarifi_notif","0");
+    stopNotifTimer();
+    toast("تم إيقاف التذكيرات","w");
+  } else {
+    localStorage.setItem("masarifi_notif","1");
+    startNotifTimer();
+    toast("تم تفعيل التذكيرات 🔔");
+  }
+  render();
+}
+
 // ── START ─────────────────────────────────────────────────
 // Ensure curM is within visible months
 (function(){
@@ -825,6 +964,8 @@ function reLockNow(){
 })();
 render();
 setTimeout(function(){ autoBackup(); }, 3000);
+// Start hourly reminders if previously enabled
+setTimeout(function(){ startNotifTimer(); }, 1000);
 </script>
 </body>
 </html>
