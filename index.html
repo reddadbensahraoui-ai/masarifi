@@ -359,7 +359,7 @@ function page(){
   h+='<div style="display:flex;border-bottom:1px solid #1E2030;background:#0F1117;position:sticky;top:0;z-index:10">';
   h+='<button class="tab'+(curTab==="charges"?" on":"")+'" onclick="setTab(\'charges\')">📤 المصاريف ('+md.charges.length+')</button>';
   h+='<button class="tab'+(curTab==="income"?" on":"")+'" onclick="setTab(\'income\')">💰 الدخل ('+md.incomes.length+')</button>';
-  h+='<button class="tab'+(curTab==="settings"?" on":"")+'" onclick="setTab(\'settings\')">⚙️</button>';
+  h+='<button class="tab'+(curTab==="settings"?" on":"")+'" onclick="setTab(\'settings\')">⚙️ إعدادات</button>';
   h+='</div>';
 
   h+='<div style="padding:12px 20px">';
@@ -545,11 +545,16 @@ function buildModal(){
   }
 
   else if(modal==="import"){
-    h+='<span style="font-size:16px;font-weight:800">📥 استيراد</span>';
+    h+='<span style="font-size:16px;font-weight:800">📥 استيراد نسخة احتياطية</span>';
     h+='<button onclick="closeModal()" style="background:#1E2030;border:none;border-radius:99px;width:30px;height:30px;color:#888;cursor:pointer;font-size:16px">✕</button></div>';
-    h+='<div style="font-size:12px;color:#888;margin-bottom:12px">الصق محتوى ملف JSON هنا:</div>';
-    h+='<textarea id="itxt" style="width:100%;background:#1E2030;border:1.5px solid #2A2D3E;border-radius:11px;padding:12px;font-size:12px;color:#ccc;height:120px;resize:none;font-family:Cairo,sans-serif;outline:none;margin-bottom:12px" placeholder="الصق JSON هنا..."></textarea>';
-    h+='<button onclick="doImport()" class="btn-main">استيراد البيانات</button>';
+    h+='<div style="font-size:12px;color:#888;margin-bottom:16px;line-height:1.7">اختر ملف <b style="color:#FFD166">.json</b> من جهازك لاستعادة بياناتك</div>';
+    h+='<label for="jsonFile" style="display:flex;flex-direction:column;align-items:center;justify-content:center;gap:10px;background:#1E2030;border:2px dashed #FFD16655;border-radius:14px;padding:28px 16px;cursor:pointer;margin-bottom:14px">';
+    h+='<span style="font-size:36px">📂</span>';
+    h+='<span style="font-size:13px;color:#FFD166;font-weight:700">اضغط لاختيار الملف</span>';
+    h+='<span id="fileNameLabel" style="font-size:11px;color:#555">لم يتم اختيار ملف</span>';
+    h+='<input id="jsonFile" type="file" accept=".json,application/json" style="display:none" onchange="onFileChosen(this)"/>';
+    h+='</label>';
+    h+='<button onclick="doImportFile()" class="btn-main">استيراد البيانات ✓</button>';
   }
 
   else if(modal==="confirmClear"){
@@ -732,15 +737,30 @@ function doExport(){
   toast("تم التصدير ✓");
 }
 
-function doImport(){
-  var txt=document.getElementById("itxt");
-  if(!txt||!txt.value.trim()){ toast("الصق البيانات أولاً","e"); return; }
-  try{
-    var imp=JSON.parse(txt.value.trim());
-    if(!imp.months){ toast("ملف غير صالح","e"); return; }
-    APP=imp; save(); modal=null;
-    toast("تم الاستيراد بنجاح ✓"); render();
-  }catch(e){ toast("خطأ في الملف","e"); }
+var _importedData = null;
+
+function onFileChosen(input){
+  var file = input.files[0];
+  if(!file){ return; }
+  var lbl = document.getElementById("fileNameLabel");
+  if(lbl) lbl.textContent = file.name;
+  var reader = new FileReader();
+  reader.onload = function(e){
+    try{
+      var imp = JSON.parse(e.target.result);
+      if(!imp.months){ toast("ملف غير صالح","e"); _importedData=null; return; }
+      _importedData = imp;
+      if(lbl) lbl.style.color = "#06D6A0";
+    }catch(err){ toast("خطأ في قراءة الملف","e"); _importedData=null; }
+  };
+  reader.readAsText(file);
+}
+
+function doImportFile(){
+  if(!_importedData){ toast("اختر ملف JSON أولاً","e"); return; }
+  APP = _importedData; _importedData = null;
+  save(); modal = null;
+  toast("تم الاستيراد بنجاح ✓"); render();
 }
 
 // ── PASSWORD ACTIONS ──────────────────────────────────────
