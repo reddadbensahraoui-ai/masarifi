@@ -1,5 +1,3 @@
-html
-
 <!DOCTYPE html>
 <html lang="ar" dir="rtl">
 <head>
@@ -16,7 +14,7 @@ html
 *{box-sizing:border-box;margin:0;padding:0;-webkit-tap-highlight-color:transparent}
 html,body{height:100%;background:#0F1117;overflow:hidden}
 body{font-family:'Cairo',sans-serif;color:#f0f0f0;direction:rtl}
-input,button,select,textarea{font-family:'Cairo',sans-serif}
+input,button{font-family:'Cairo',sans-serif}
 ::-webkit-scrollbar{width:0}
 #app{max-width:430px;margin:0 auto;height:100vh;display:flex;flex-direction:column;background:#0F1117}
 #main{flex:1;overflow-y:auto;-webkit-overflow-scrolling:touch;padding-bottom:20px}
@@ -42,66 +40,18 @@ input,button,select,textarea{font-family:'Cairo',sans-serif}
 .inp{width:100%;background:#1E2030;border:1.5px solid #2A2D3E;border-radius:11px;padding:11px 13px;font-size:14px;color:#fff;outline:none;font-family:Cairo,sans-serif;margin-bottom:10px}
 .lbl{font-size:11px;color:#666;margin-bottom:6px;display:block}
 .lock-banner{background:linear-gradient(135deg,#2a1010,#1a0808);border:1.5px solid #FF6B6B44;border-radius:12px;padding:10px 14px;margin-bottom:10px;display:flex;align-items:center;gap:9px}
-
-/* ── BOTTOM NAV ─────────────────────────────────────── */
-#bottom-nav{
-  display:flex;
-  background:#151720;
-  border-top:1px solid #1E2030;
-  padding:6px 0 env(safe-area-inset-bottom,6px);
-  position:relative;
-  z-index:20;
-}
-.bnav-btn{
-  flex:1;display:flex;flex-direction:column;align-items:center;gap:2px;
-  background:none;border:none;cursor:pointer;padding:6px 4px;
-  font-family:Cairo,sans-serif;color:#555;font-size:10px;transition:color .2s;
-}
-.bnav-btn .bicon{font-size:20px;line-height:1;margin-bottom:1px}
-.bnav-btn.on{color:#B8B5FF}
-.bnav-btn.on .bicon{filter:drop-shadow(0 0 6px #B8B5FF88)}
-
-/* ── PERSONS CARD ───────────────────────────────────── */
-.person-card{
-  background:#1E2030;border-radius:14px;padding:12px 14px;margin-bottom:8px;
-  display:flex;align-items:center;gap:12px;cursor:pointer;
-  border:1.5px solid transparent;transition:border-color .2s;
-}
-.person-card:active{border-color:#B8B5FF44}
-.person-avatar{
-  width:44px;height:44px;border-radius:99px;display:flex;align-items:center;
-  justify-content:center;font-size:20px;flex-shrink:0;
-}
-.tx-row{
-  background:#1E2030;border-radius:12px;padding:10px 12px;margin-bottom:6px;
-  border-right:3px solid transparent;
-}
-.badge{display:inline-block;border-radius:99px;padding:2px 9px;font-size:10px;font-weight:700}
-
-/* ── DEBT SUMMARY ───────────────────────────────────── */
-.debt-sum-card{
-  border-radius:14px;padding:13px 15px;margin-bottom:8px;
-  display:flex;align-items:center;gap:10px;
-}
 </style>
 </head>
 <body>
-<div id="app">
-  <div id="main"></div>
-  <div id="bottom-nav"></div>
-</div>
+<div id="app"><div id="main"></div></div>
 <div id="toast"></div>
 <script>
-// ══════════════════════════════════════════════════════════
-// DATA LAYER
-// ══════════════════════════════════════════════════════════
+// ── DATA ──────────────────────────────────────────────────
 var SK = "masarifi_v1";
-var APP = (function(){ try{ var r=localStorage.getItem(SK); if(r) return JSON.parse(r); }catch(e){} return {currency:"MAD",months:{},persons:[]}; })();
-if(!APP.persons) APP.persons = [];
+var APP = (function(){ try{ var r=localStorage.getItem(SK); if(r) return JSON.parse(r); }catch(e){} return {currency:"MAD",months:{}}; })();
 
 function save(){ try{ localStorage.setItem(SK,JSON.stringify(APP)); }catch(e){ toast("تعذر الحفظ!","e"); } }
 
-// ── DEFAULT CHARGES / INCOMES ─────────────────────────────
 var DC = [
   {id:"darts",      label:"Darts",                  amount:5000, icon:"🎯", color:"#FF8B94",  skipMonths:[]},
   {id:"charge_m",   label:"Charge Du Mois",          amount:3500, icon:"🛒", color:"#FFE66D",  skipMonths:[]},
@@ -122,39 +72,63 @@ var ICONS=["📦","🚗","🛒","💊","🎓","🍽️","❤️","🏦","📄","
 var COLS=["#FF6B6B","#4ECDC4","#FFE66D","#B8B5FF","#A8E6CF","#FF8B94","#06D6A0","#FFDAB9","#FFD166","#74B9FF","#fd79a8","#00cec9"];
 var CURRS=["MAD","DZD","TND","SAR","AED","USD","EUR"];
 
-// Person avatar emojis
-var AVATARS=["👨","👩","👦","👧","🧑","👴","👵","🧔","💁","🙋","👨‍💼","👩‍💼","🧑‍🤝‍🧑","👫","👬","👭","🫂","🤝"];
-var PCOLORS=["#B8B5FF","#06D6A0","#FFD166","#FF8B94","#74B9FF","#A8E6CF","#FF6B6B","#4ECDC4","#fd79a8","#FFDAB9"];
-
-// ══════════════════════════════════════════════════════════
-// MONTH HELPERS
-// ══════════════════════════════════════════════════════════
+// ── MONTH KEY HELPERS ─────────────────────────────────────
+// "current month" in budget terms: after 27th, we flip to next month
 function tm(){
   var d=new Date();
-  if(d.getDate()>=27){ d.setMonth(d.getMonth()+1); }
+  if(d.getDate()>=27){
+    d.setMonth(d.getMonth()+1);
+  }
   return d.getFullYear()+"-"+(d.getMonth()<9?"0":"")+(d.getMonth()+1);
 }
-function addMonths(mk,n){
+
+// Add N months to a YYYY-MM key
+function addMonths(mk, n){
   var p=mk.split("-");
-  var d=new Date(parseInt(p[0]),parseInt(p[1])-1+n,1);
+  var d=new Date(parseInt(p[0]), parseInt(p[1])-1+n, 1);
   return d.getFullYear()+"-"+(d.getMonth()<9?"0":"")+(d.getMonth()+1);
 }
-function mkCmp(a,b){ return a<b?-1:a>b?1:0; }
-function isPrevMonthLocked(){ return new Date().getDate()>27; }
-function prevBudgetMonth(){ return addMonths(tm(),-1); }
+
+// Compare two YYYY-MM keys
+function mkCmp(a, b){ return a < b ? -1 : a > b ? 1 : 0; }
+
+// ── LOCK LOGIC ────────────────────────────────────────────
+// The previous month (relative to current budget month) is LOCKED after midnight on the 27th.
+// i.e., once the real clock date >= 27, the previous budget month is frozen.
+function isPrevMonthLocked(){
+  var d=new Date();
+  return d.getDate() > 27; // after midnight of 27th → locked
+}
+
+// Get the previous budget month key
+function prevBudgetMonth(){
+  return addMonths(tm(), -1);
+}
+
+// Is the given month key locked for editing?
 function isMonthLocked(mk){
+  var now=tm();
   var prev=prevBudgetMonth();
-  if(mk===prev&&isPrevMonthLocked()) return true;
-  if(mkCmp(mk,prev)<0) return true;
+  // Only prev month can be locked; future/current months are always editable
+  if(mk === prev && isPrevMonthLocked()) return true;
+  // Months older than prev are always locked
+  if(mkCmp(mk, prev) < 0) return true;
   return false;
 }
+
+// ── VISIBLE MONTHS: prev, current, +4 future (6 total) ───
 function visibleMonths(){
-  var now=tm(), months=[];
-  months.push(addMonths(now,-1));
-  months.push(now);
-  for(var i=1;i<=4;i++) months.push(addMonths(now,i));
+  var now=tm();
+  var months=[];
+  months.push(addMonths(now, -1)); // 1 month before
+  months.push(now);                // current
+  months.push(addMonths(now, 1));  // +1
+  months.push(addMonths(now, 2));  // +2
+  months.push(addMonths(now, 3));  // +3
+  months.push(addMonths(now, 4));  // +4
   return months;
 }
+
 function gen10Y(){
   var k=[],d=new Date(2024,0,1);
   for(var i=0;i<144;i++){
@@ -163,12 +137,14 @@ function gen10Y(){
   }
   return k;
 }
-var ALL=gen10Y();
+var ALL = gen10Y();
+
 function td(){ return new Date().toISOString().slice(0,10); }
 function mlabel(mk){ var p=mk.split("-"); return new Date(p[0],p[1]-1,1).toLocaleDateString("ar-MA",{month:"long",year:"numeric"}); }
 function mshort(mk){ return new Date(mk+"-01").toLocaleDateString("ar-MA",{month:"short",year:"2-digit"}); }
+
 function getDeficit(mk){
-  var prev=addMonths(mk,-1);
+  var prev=addMonths(mk, -1);
   if(!APP.months[prev]) return 0;
   var pm=APP.months[prev];
   var ti=pm.incomes.reduce(function(s,i){return s+i.amount;},0);
@@ -176,6 +152,7 @@ function getDeficit(mk){
   var surp=ti-tc;
   return surp<0?Math.abs(surp):0;
 }
+
 function newMonth(mk){
   var mo=mk?(mk.split("-")[1]):"00";
   var charges=[];
@@ -185,64 +162,58 @@ function newMonth(mk){
     charges.push({id:c.id,label:c.label,amount:c.amount,icon:c.icon,color:c.color,paid:false});
   });
   return {
-    incomes:DI.map(function(i){return {id:i.id,label:i.label,amount:i.amount,icon:i.icon,color:i.color};}),
-    charges:charges,
-    savings:0
+    incomes: DI.map(function(i){ return {id:i.id,label:i.label,amount:i.amount,icon:i.icon,color:i.color}; }),
+    charges: charges,
+    savings: 0
   };
 }
+
 function gm(k){
   if(!APP.months[k]) APP.months[k]=newMonth(k);
   var m=APP.months[k];
   m.incomes=m.incomes.filter(function(i){return i.id!=="deficit_deduct";});
   var d=getDeficit(k);
-  if(d>0) m.incomes.push({id:"deficit_deduct",label:"عجز الشهر السابق (مُرحّل)",amount:-d,icon:"⚠️",color:"#FF6B6B"});
+  if(d>0){
+    m.incomes.push({id:"deficit_deduct",label:"عجز الشهر السابق (مُرحّل)",amount:-d,icon:"⚠️",color:"#FF6B6B"});
+  }
   return m;
 }
 
-// ══════════════════════════════════════════════════════════
-// PASSWORD
-// ══════════════════════════════════════════════════════════
-var PWD_KEY="masarifi_pwd", UNLOCK_KEY="masarifi_unlocked";
+// ── PASSWORD ──────────────────────────────────────────────
+var PWD_KEY    = "masarifi_pwd";
+var UNLOCK_KEY = "masarifi_unlocked"; // sessionStorage: reset on app close
+
 function getPwd(){ return localStorage.getItem(PWD_KEY)||""; }
 function setPwdStore(p){ localStorage.setItem(PWD_KEY,p); }
 function removePwd(){ localStorage.removeItem(PWD_KEY); }
-function isUnlocked(){ if(!getPwd()) return true; return sessionStorage.getItem(UNLOCK_KEY)==="1"; }
+
+// Once unlocked per session it stays open until tab is closed
+function isUnlocked(){
+  if(!getPwd()) return true; // no password set → always open
+  return sessionStorage.getItem(UNLOCK_KEY)==="1";
+}
 function setUnlocked(){ sessionStorage.setItem(UNLOCK_KEY,"1"); }
 function reLock(){ sessionStorage.removeItem(UNLOCK_KEY); }
 
-// ══════════════════════════════════════════════════════════
-// STATE
-// ══════════════════════════════════════════════════════════
-var curM=tm();
-var curTab="charges";
-var curPage="budget"; // "budget" | "debts"
-var modal=null;
-var pendingDelId=null, pendingDelType=null;
-var numVal="", numLabel="", numIcon="📦", numCol="#B8B5FF", numStep="info";
-var editId=null, editType=null;
-var pwdVal="", pwdMode="", pwdOldOk=false;
+// ── STATE ─────────────────────────────────────────────────
+var curM  = tm();
+var curTab= "charges";
+var modal = null;
+var pendingDelId   = null;
+var pendingDelType = null;
+var numVal  = "";
+var numLabel= "";
+var numIcon = "📦";
+var numCol  = "#B8B5FF";
+var numStep = "info";
+var editId  = null;
+var editType= null;
+// Password modal sub-state
+var pwdVal     = "";   // what user is typing
+var pwdMode    = "";   // "unlock" | "set" | "change-old" | "change-new" | "remove"
+var pwdOldOk   = false;// true after old password verified during change
 
-// ── DEBTS STATE ───────────────────────────────────────────
-var debtPage="list"; // "list" | "detail"
-var curPersonId=null;
-var debtModal=null;
-// new transaction state
-var dtType="lend"; // "lend" | "borrow" | "settle"
-var dtAmount="";
-var dtNote="";
-var dtDate=td();
-// add person state
-var newPersonName="";
-var newPersonAvatar="👨";
-var newPersonColor="#B8B5FF";
-var editPersonId=null;
-// pending delete
-var pendingDelPersonId=null;
-var pendingDelTxId=null;
-
-// ══════════════════════════════════════════════════════════
-// TOAST
-// ══════════════════════════════════════════════════════════
+// ── TOAST ─────────────────────────────────────────────────
 var _tt;
 function toast(msg,type){
   var el=document.getElementById("toast");
@@ -250,9 +221,7 @@ function toast(msg,type){
   clearTimeout(_tt); _tt=setTimeout(function(){ el.className=""; },2400);
 }
 
-// ══════════════════════════════════════════════════════════
-// AUTO BACKUP
-// ══════════════════════════════════════════════════════════
+// ── AUTO BACKUP ───────────────────────────────────────────
 function autoBackup(){
   try{
     var last=localStorage.getItem("masarifi_bk");
@@ -264,85 +233,33 @@ function autoBackup(){
     var a=document.createElement("a");
     a.href=url;
     a.download="masarifi_auto_"+now.getFullYear()+"-"+(now.getMonth()+1)+"-"+now.getDate()+".json";
-    a.click(); URL.revokeObjectURL(url);
+    a.click();
+    URL.revokeObjectURL(url);
     localStorage.setItem("masarifi_bk",key);
     toast("تم النسخ الاحتياطي التلقائي ✓");
   }catch(e){}
 }
 
-// ══════════════════════════════════════════════════════════
-// LOCK GUARD
-// ══════════════════════════════════════════════════════════
+// ── GUARD: block edits on locked months ───────────────────
 function guardLocked(){
   if(!isMonthLocked(curM)) return false;
-  if(isUnlocked()) return false;
+  if(isUnlocked()) return false; // already unlocked this session
+  // Need password → open unlock modal
   pwdVal=""; pwdMode="unlock"; modal="pwd"; render();
   return true;
 }
 
-// ══════════════════════════════════════════════════════════
-// PERSONS / DEBTS HELPERS
-// ══════════════════════════════════════════════════════════
-function getPerson(id){ return APP.persons.find(function(p){return p.id===id;})||null; }
-
-// Balance for a person: positive = they owe you, negative = you owe them
-function personBalance(person){
-  return (person.transactions||[]).reduce(function(sum,tx){
-    if(tx.type==="lend")   return sum + tx.amount;   // you lent → they owe you
-    if(tx.type==="borrow") return sum - tx.amount;   // you borrowed → you owe them
-    if(tx.type==="settle") return sum + tx.amount;   // settlement amount (can be negative)
-    return sum;
-  },0);
-}
-
-// Summary for the debt overview card
-function debtSummary(){
-  var totalOwed=0, totalOwing=0;
-  APP.persons.forEach(function(p){
-    var b=personBalance(p);
-    if(b>0) totalOwed+=b;
-    else totalOwing+=Math.abs(b);
-  });
-  return {owed:totalOwed, owing:totalOwing};
-}
-
-function dateStr(iso){
-  if(!iso) return "";
-  try{
-    var d=new Date(iso);
-    return d.toLocaleDateString("ar-MA",{day:"2-digit",month:"2-digit",year:"numeric"});
-  }catch(e){ return iso; }
-}
-
-// ══════════════════════════════════════════════════════════
-// RENDER
-// ══════════════════════════════════════════════════════════
+// ── RENDER ────────────────────────────────────────────────
 function render(){
   var el=document.getElementById("main");
   var st=el.scrollTop;
-  el.innerHTML = curPage==="budget" ? pageBudget() : pageDebts();
-  document.getElementById("bottom-nav").innerHTML = buildBottomNav();
+  el.innerHTML=page();
   bind();
   el.scrollTop=st;
 }
 
-// ══════════════════════════════════════════════════════════
-// BOTTOM NAV
-// ══════════════════════════════════════════════════════════
-function buildBottomNav(){
-  var h="";
-  h+='<button class="bnav-btn'+(curPage==="budget"?" on":"")+'" onclick="goPage(\'budget\')">';
-  h+='<span class="bicon">📊</span><span>الميزانية</span></button>';
-  h+='<button class="bnav-btn'+(curPage==="debts"?" on":"")+'" onclick="goPage(\'debts\')">';
-  h+='<span class="bicon">🤝</span><span>السلف</span></button>';
-  return h;
-}
-function goPage(p){ curPage=p; if(p==="debts"){ debtPage="list"; curPersonId=null; debtModal=null; } modal=null; render(); }
-
-// ══════════════════════════════════════════════════════════
-// BUDGET PAGE
-// ══════════════════════════════════════════════════════════
-function pageBudget(){
+// ── PAGE ──────────────────────────────────────────────────
+function page(){
   var md=gm(curM);
   var tInc=md.incomes.reduce(function(s,i){return s+i.amount;},0);
   var tChg=md.charges.reduce(function(s,c){return s+c.amount;},0);
@@ -355,28 +272,40 @@ function pageBudget(){
   var vs=visibleMonths();
   var h="";
 
+  // ── HEADER
   h+='<div style="background:linear-gradient(160deg,#1a1d2e,#0F1117);padding:48px 0 0">';
   h+='<div style="display:flex;gap:7px;overflow-x:auto;padding:0 20px 12px">';
   vs.forEach(function(mk){
-    var isNow=mk===now, isCur=mk===curM, isLk=isMonthLocked(mk);
-    var s=isNow?"border-color:#06D6A0;color:#06D6A0;background:#06D6A015":isCur?"border-color:#B8B5FF;color:#B8B5FF;background:#B8B5FF15":"";
+    var isNow=mk===now;
+    var isCur=mk===curM;
+    var isLk=isMonthLocked(mk);
+    var s= isNow  ? "border-color:#06D6A0;color:#06D6A0;background:#06D6A015" :
+           isCur  ? "border-color:#B8B5FF;color:#B8B5FF;background:#B8B5FF15" : "";
     var lockIcon=isLk?' <span style="font-size:9px;opacity:.6">🔒</span>':'';
     h+='<div class="chip" style="'+s+'" onclick="setCurM(\''+mk+'\')">'+mshort(mk)+lockIcon+'</div>';
   });
   h+='</div>';
 
+  // summary
   h+='<div style="padding:0 20px 14px">';
   var now2=new Date();
   var fullDate=now2.toLocaleDateString("ar-MA",{weekday:"long",day:"numeric",month:"long",year:"numeric"});
   h+='<div style="font-size:12px;color:#888;margin-bottom:8px;cursor:pointer;display:flex;align-items:center;gap:6px" onclick="setCurM(tm())">📅 '+fullDate+(curM!==now?'<span style="color:#B8B5FF;font-size:10px;background:#B8B5FF15;border-radius:99px;padding:1px 8px">← الشهر الحالي</span>':'')+'</div>';
 
+  // Lock banner for previous month
   if(locked){
     h+='<div class="lock-banner">';
     if(isUnlocked()){
-      h+='<span style="font-size:20px">🔓</span><div style="flex:1"><div style="font-size:13px;font-weight:700;color:#FFD166">الشهر مفتوح مؤقتاً بكلمة المرور</div><div style="font-size:10px;color:#554400;margin-top:2px">سيعود للقفل عند إغلاق التطبيق</div></div>';
+      h+='<span style="font-size:20px">🔓</span><div style="flex:1">';
+      h+='<div style="font-size:13px;font-weight:700;color:#FFD166">الشهر مفتوح مؤقتاً بكلمة المرور</div>';
+      h+='<div style="font-size:10px;color:#554400;margin-top:2px">سيعود للقفل عند إغلاق التطبيق</div>';
+      h+='</div>';
       h+='<button onclick="reLockNow()" style="background:#2A2D3E;border:none;border-radius:8px;padding:5px 10px;color:#888;font-size:11px;cursor:pointer;font-family:Cairo,sans-serif">🔒 قفل</button>';
     } else {
-      h+='<span style="font-size:20px">🔒</span><div style="flex:1"><div style="font-size:13px;font-weight:700;color:#FF8B94">الشهر مقفل للتعديل</div><div style="font-size:10px;color:#664444;margin-top:2px">يُقفل الشهر السابق تلقائياً منتصف ليل 27 من كل شهر</div></div>';
+      h+='<span style="font-size:20px">🔒</span><div style="flex:1">';
+      h+='<div style="font-size:13px;font-weight:700;color:#FF8B94">الشهر مقفل للتعديل</div>';
+      h+='<div style="font-size:10px;color:#664444;margin-top:2px">يُقفل الشهر السابق تلقائياً منتصف ليل 27 من كل شهر</div>';
+      h+='</div>';
       h+='<button onclick="openPwdModal(\'unlock\')" style="background:#FF6B6B22;border:1.5px solid #FF6B6B44;border-radius:8px;padding:5px 10px;color:#FF8B94;font-size:11px;cursor:pointer;font-family:Cairo,sans-serif">🔑 فتح</button>';
     }
     h+='</div>';
@@ -394,18 +323,25 @@ function pageBudget(){
   h+='<span style="font-size:18px;font-weight:900;color:'+sc+'">'+(surp>=0?"+":"")+surp.toLocaleString()+' '+cur+'</span></div>';
   h+='<div class="bar-t"><div class="bar-f" style="width:'+(tInc>0?Math.min((tChg/tInc)*100,100):0)+'%;background:'+sc+'"></div></div>';
   h+='<div class="row" style="margin-top:3px;font-size:9px;color:#444"><span>مدفوع: '+paid.toLocaleString()+'</span><span>متبقي: '+(tChg-paid).toLocaleString()+'</span></div>';
-  if(deficit>0) h+='<div style="margin-top:8px;background:#FF6B6B15;border-radius:8px;padding:7px 10px;font-size:11px;color:#FF8B94">⚠️ سيُخصم عجز '+deficit.toLocaleString()+' '+cur+' من ميزانية الشهر القادم تلقائياً</div>';
-  if(prevDeficit>0) h+='<div style="margin-top:8px;background:#FF6B6B15;border-radius:8px;padding:7px 10px;font-size:11px;color:#FF8B94">⚠️ عجز مُرحّل من الشهر الماضي: '+prevDeficit.toLocaleString()+' '+cur+'</div>';
+  if(deficit>0){
+    h+='<div style="margin-top:8px;background:#FF6B6B15;border-radius:8px;padding:7px 10px;font-size:11px;color:#FF8B94">⚠️ سيُخصم عجز '+deficit.toLocaleString()+' '+cur+' من ميزانية الشهر القادم تلقائياً</div>';
+  }
+  if(prevDeficit>0){
+    h+='<div style="margin-top:8px;background:#FF6B6B15;border-radius:8px;padding:7px 10px;font-size:11px;color:#FF8B94">⚠️ عجز مُرحّل من الشهر الماضي: '+prevDeficit.toLocaleString()+' '+cur+'</div>';
+  }
   h+='</div>';
-
   var sv=md.savings||0;
   var totalSavings=Object.keys(APP.months).reduce(function(s,k){return s+(APP.months[k].savings||0);},0);
   h+='<div class="card" style="border:1.5px solid '+(sv>0?"#74B9FF44":"#2A2D3E")+';background:'+(sv>0?"#0a1f2a":"#1E2030")+'">';
   h+='<div class="row"><div><div style="font-size:11px;color:#74B9FF;margin-bottom:2px">🏦 الادخار هذا الشهر</div>';
   h+='<div style="font-size:18px;font-weight:900;color:#74B9FF">'+sv.toLocaleString()+' <span style="font-size:10px;color:#555">'+cur+'</span></div></div>';
-  if(!locked) h+='<button onclick="openModal(\'savings\')" style="background:#2A2D3E;border:none;border-radius:9px;padding:6px 11px;color:#888;font-size:12px;cursor:pointer;font-family:Cairo,sans-serif">✏️ تعديل</button>';
-  else if(isUnlocked()) h+='<button onclick="openModal(\'savings\')" style="background:#2A2D3E;border:none;border-radius:9px;padding:6px 11px;color:#FFD166;font-size:12px;cursor:pointer;font-family:Cairo,sans-serif">✏️ تعديل</button>';
-  else h+='<span style="font-size:20px;opacity:.4">🔒</span>';
+  if(!locked){
+    h+='<button onclick="openModal(\'savings\')" style="background:#2A2D3E;border:none;border-radius:9px;padding:6px 11px;color:#888;font-size:12px;cursor:pointer;font-family:Cairo,sans-serif">✏️ تعديل</button>';
+  } else if(isUnlocked()){
+    h+='<button onclick="openModal(\'savings\')" style="background:#2A2D3E;border:none;border-radius:9px;padding:6px 11px;color:#FFD166;font-size:12px;cursor:pointer;font-family:Cairo,sans-serif">✏️ تعديل</button>';
+  } else {
+    h+='<span style="font-size:20px;opacity:.4">🔒</span>';
+  }
   h+='</div>';
   if(sv>0){
     var ac=afsv>=0?"#06D6A0":"#FF6B6B";
@@ -419,7 +355,7 @@ function pageBudget(){
   if(surp>0&&!sv&&!locked) h+='<div style="font-size:10px;color:#555;margin-top:6px">لديك فائض '+surp.toLocaleString()+' '+cur+' — يمكنك ادخار جزء منه 💡</div>';
   h+='</div></div></div>';
 
-  // TABS
+  // ── TABS
   h+='<div style="display:flex;border-bottom:1px solid #1E2030;background:#0F1117;position:sticky;top:0;z-index:10">';
   h+='<button class="tab'+(curTab==="charges"?" on":"")+'" onclick="setTab(\'charges\')">📤 المصاريف ('+md.charges.length+')</button>';
   h+='<button class="tab'+(curTab==="income"?" on":"")+'" onclick="setTab(\'income\')">💰 الدخل ('+md.incomes.length+')</button>';
@@ -427,6 +363,8 @@ function pageBudget(){
   h+='</div>';
 
   h+='<div style="padding:12px 20px">';
+
+  // ── CHARGES TAB
   if(curTab==="charges"){
     if(!locked||isUnlocked()){
       h+='<button onclick="openModal(\'addCharge\')" style="width:100%;background:#1E2030;border:1.5px dashed '+(isUnlocked()&&locked?"#FFD16688":"#B8B5FF55")+';border-radius:13px;padding:11px;color:'+(isUnlocked()&&locked?"#FFD166":"#B8B5FF")+';font-size:13px;cursor:pointer;font-family:Cairo,sans-serif;margin-bottom:10px">+ إضافة مصروف</button>';
@@ -435,6 +373,8 @@ function pageBudget(){
     var effectiveLock=locked&&!isUnlocked();
     sorted.forEach(function(c){ h+=itemRow(c,cur,true,effectiveLock); });
   }
+
+  // ── INCOME TAB
   if(curTab==="income"){
     if(!locked||isUnlocked()){
       h+='<button onclick="openModal(\'addIncome\')" style="width:100%;background:#1E2030;border:1.5px dashed #06D6A055;border-radius:13px;padding:11px;color:#06D6A0;font-size:13px;cursor:pointer;font-family:Cairo,sans-serif;margin-bottom:10px">+ إضافة مصدر دخل</button>';
@@ -444,553 +384,130 @@ function pageBudget(){
     h+='<div style="background:#0a1f0a;border-radius:13px;padding:10px 14px;border:1px solid #06D6A022;margin-top:6px">';
     h+='<div class="row"><span style="color:#888;font-size:13px">إجمالي الدخل</span><span style="font-weight:800;color:#06D6A0;font-size:14px">'+tInc.toLocaleString()+' '+cur+'</span></div></div>';
   }
+
+  // ── SETTINGS TAB
   if(curTab==="settings"){
-    h+=buildSettingsTab();
+    h+='<div class="card"><div style="font-size:11px;color:#444;margin-bottom:9px">العملة</div><div style="display:flex;flex-wrap:wrap;gap:7px">';
+    CURRS.forEach(function(c){
+      var sel=APP.currency===c;
+      var st=sel?'border:1.5px solid #B8B5FF;color:#B8B5FF;background:#B8B5FF15':'';
+      h+='<span id="cur_'+c+'" onclick="selCur(this)" data-c="'+c+'" style="display:inline-block;padding:5px 13px;border-radius:99px;font-size:11px;cursor:pointer;'+st+'">'+c+'</span>';
+    });
+    h+='</div></div>';
+
+    // Lock + Password management card
+    var hasPwd=!!getPwd();
+    var dayNow=new Date().getDate();
+    var daysLeft=dayNow<27?27-dayNow:0;
+    h+='<div class="card" style="border:1px solid #FF6B6B22">';
+    h+='<div style="font-size:11px;color:#FF8B94;margin-bottom:8px;font-weight:700">🔒 نظام قفل الشهر السابق</div>';
+    if(daysLeft>0){
+      h+='<div style="font-size:12px;color:#666;line-height:1.8;margin-bottom:10px">الشهر السابق مفتوح للتعديل<br><span style="color:#FFD166">يُقفل بعد <b style="color:#fff">'+daysLeft+' يوم</b> (منتصف ليل 27)</span></div>';
+    } else {
+      h+='<div style="font-size:12px;color:#666;line-height:1.8;margin-bottom:10px">الشهر السابق <span style="color:#FF6B6B;font-weight:700">مقفل الآن 🔒</span></div>';
+    }
+    h+='<div style="border-top:1px solid #2A2D3E;padding-top:10px">';
+    h+='<div style="font-size:11px;color:#888;margin-bottom:8px">🔑 كلمة مرور فتح القفل</div>';
+    if(!hasPwd){
+      h+='<button onclick="openPwdModal(\'set\')" style="width:100%;background:#1E2030;border:1.5px dashed #B8B5FF55;border-radius:11px;padding:10px;color:#B8B5FF;font-size:12px;cursor:pointer;font-family:Cairo,sans-serif">+ تعيين كلمة مرور</button>';
+      h+='<div style="font-size:10px;color:#444;margin-top:6px">بدون كلمة مرور: الشهر المقفل يظل مغلقاً تماماً</div>';
+    } else {
+      h+='<div style="display:flex;gap:8px;margin-bottom:7px">';
+      h+='<button onclick="openPwdModal(\'change\')" style="flex:1;background:#1E2030;border:1.5px solid #B8B5FF33;border-radius:11px;padding:9px;color:#B8B5FF;font-size:11px;cursor:pointer;font-family:Cairo,sans-serif">✏️ تغيير</button>';
+      h+='<button onclick="openPwdModal(\'remove\')" style="flex:1;background:#1E2030;border:1.5px solid #FF6B6B33;border-radius:11px;padding:9px;color:#FF6B6B;font-size:11px;cursor:pointer;font-family:Cairo,sans-serif">🗑️ إزالة</button>';
+      if(isUnlocked()){ h+='<button onclick="reLockNow()" style="flex:1;background:#FF6B6B15;border:1.5px solid #FF6B6B44;border-radius:11px;padding:9px;color:#FF8B94;font-size:11px;cursor:pointer;font-family:Cairo,sans-serif">🔒 إعادة قفل</button>'; }
+      h+='</div>';
+      h+='<div style="font-size:10px;color:#444">✓ كلمة المرور مضبوطة — تُطلب عند محاولة تعديل الشهر المقفل</div>';
+    }
+    h+='</div></div>';
+
+    h+='<div class="card"><div style="font-size:11px;color:#444;margin-bottom:10px">ملخص الأشهر</div>';
+    var nowIdx=ALL.indexOf(now);
+    var rangeStart=ALL[Math.max(0,nowIdx-4)];
+    var rangeEnd=ALL[Math.min(ALL.length-1,nowIdx+4)];
+    var filteredMonths=Object.keys(APP.months).sort().filter(function(mk){ return mk>=rangeStart&&mk<=rangeEnd; });
+    if(filteredMonths.length===0){
+      h+='<div style="font-size:11px;color:#555;text-align:center;padding:10px">لا توجد بيانات في هذه الفترة</div>';
+    } else {
+      filteredMonths.forEach(function(mk){
+        var mm=APP.months[mk];
+        var ti=mm.incomes.reduce(function(s,i){return s+i.amount;},0);
+        var tc=mm.charges.reduce(function(s,c){return s+c.amount;},0);
+        var sv2=mm.savings||0;
+        var b=ti-tc;
+        var isNow=mk===now;
+        var isLk=isMonthLocked(mk);
+        h+='<div class="row" style="font-size:12px;margin-bottom:6px;padding:6px 8px;border-bottom:1px solid #2A2D3E;border-radius:8px;background:'+(isNow?"#B8B5FF08":"transparent")+'">';
+        h+='<div style="display:flex;align-items:center;gap:6px"><span style="color:'+(isNow?"#B8B5FF":"#888")+'">'+mshort(mk)+'</span>';
+        if(isNow) h+='<span style="font-size:9px;background:#B8B5FF22;color:#B8B5FF;border-radius:99px;padding:1px 6px">الآن</span>';
+        if(isLk) h+='<span style="font-size:10px;opacity:.5">🔒</span>';
+        h+='</div>';
+        h+='<div style="display:flex;align-items:center;gap:10px">';
+        if(sv2>0) h+='<span style="font-size:11px;color:#74B9FF">🏦'+sv2.toLocaleString()+'</span>';
+        h+='<span style="font-weight:700;color:'+(b>=0?"#06D6A0":"#FF6B6B")+'">'+(b>=0?"+":"")+b.toLocaleString()+'</span></div></div>';
+      });
+    }
+    h+='</div>';
+    // ── NOTIFICATIONS CARD
+    var notifSupported=('Notification' in window);
+    var notifGranted=notifSupported&&Notification.permission==="granted";
+    var notifDenied=notifSupported&&Notification.permission==="denied";
+    var nOn=localStorage.getItem("masarifi_notif")==="1";
+    var nInterval=parseInt(localStorage.getItem("masarifi_notif_interval")||"60");
+    var intervalOptions=[
+      {val:15,  label:"كل 15 دقيقة"},
+      {val:30,  label:"كل 30 دقيقة"},
+      {val:60,  label:"كل ساعة"},
+      {val:120, label:"كل ساعتين"},
+      {val:180, label:"كل 3 ساعات"},
+      {val:360, label:"كل 6 ساعات"}
+    ];
+    h+='<div class="card" style="border:1px solid #B8B5FF22">';
+    h+='<div style="font-size:11px;color:#B8B5FF;margin-bottom:8px;font-weight:700">🔔 تذكير المصاريف غير المدفوعة</div>';
+    if(!notifSupported){
+      h+='<div style="font-size:11px;color:#555">المتصفح لا يدعم الإشعارات</div>';
+    } else if(notifDenied){
+      h+='<div style="font-size:11px;color:#FF8B94;line-height:1.7">تم رفض الإشعارات ✗<br><span style="color:#555">أعد تفعيلها من إعدادات المتصفح يدوياً</span></div>';
+    } else if(!notifGranted){
+      h+='<div style="font-size:11px;color:#666;margin-bottom:10px;line-height:1.7">تذكير دوري بالمصاريف غير المدفوعة للشهر الحالي، طالما التطبيق مفتوح</div>';
+      h+='<button onclick="enableNotifs()" style="width:100%;background:#B8B5FF15;border:1.5px solid #B8B5FF44;border-radius:12px;padding:11px;color:#B8B5FF;font-size:13px;font-weight:700;cursor:pointer;font-family:Cairo,sans-serif">🔔 تفعيل التذكيرات</button>';
+    } else {
+      // Toggle row
+      h+='<div class="row" style="margin-bottom:12px">';
+      h+='<span style="font-size:12px;color:#888">تفعيل التذكيرات</span>';
+      h+='<button onclick="toggleNotifs()" style="background:'+(nOn?"#06D6A0":"#2A2D3E")+';border:none;border-radius:99px;width:48px;height:26px;cursor:pointer;position:relative;transition:background .3s">';
+      h+='<span style="position:absolute;top:3px;'+(nOn?"left:3px":"right:3px")+';width:20px;height:20px;background:#fff;border-radius:99px;display:block;transition:all .3s"></span></button>';
+      h+='</div>';
+      // Interval selector — always visible
+      h+='<div style="font-size:11px;color:#666;margin-bottom:8px">⏱️ فترة التذكير</div>';
+      h+='<div style="display:flex;flex-wrap:wrap;gap:7px;margin-bottom:10px">';
+      intervalOptions.forEach(function(opt){
+        var sel=nInterval===opt.val;
+        h+='<button onclick="setNotifInterval('+opt.val+')" style="background:'+(sel?"#B8B5FF22":"#1E2030")+';border:1.5px solid '+(sel?"#B8B5FF":"#2A2D3E")+';border-radius:99px;padding:5px 12px;font-size:11px;color:'+(sel?"#B8B5FF":"#666")+';cursor:pointer;font-family:Cairo,sans-serif;font-weight:'+(sel?"700":"400")+'">'+(sel?"✓ ":"")+opt.label+'</button>';
+      });
+      h+='</div>';
+      if(nOn){
+        var selLabel=intervalOptions.find(function(o){return o.val===nInterval;})||intervalOptions[2];
+        h+='<div style="font-size:10px;color:#06D6A0">✓ مفعّل — تذكير '+selLabel.label+' طالما التطبيق مفتوح</div>';
+      } else {
+        h+='<div style="font-size:10px;color:#555">موقوف — فعّل المفتاح لبدء التذكيرات</div>';
+      }
+    }
+    h+='</div>';
+    h+='<div class="card"><div style="font-size:11px;color:#444;margin-bottom:10px">💾 النسخ الاحتياطي</div>';
+    h+='<div style="font-size:11px;color:#555;margin-bottom:10px;line-height:1.7">بياناتك على هاتفك فقط ✅<br>لا ترسل لأي خادم 🔒<br>نسخة احتياطية تلقائية كل شهر</div>';
+    h+='<button onclick="doExport()" style="width:100%;background:#0a1f2a;border:1.5px solid #74B9FF44;border-radius:12px;padding:12px;color:#74B9FF;font-size:13px;font-weight:700;cursor:pointer;font-family:Cairo,sans-serif;margin-bottom:8px">📤 تصدير نسخة احتياطية</button>';
+    h+='<button onclick="openModal(\'import\')" style="width:100%;background:#1a1a0a;border:1.5px solid #FFD16644;border-radius:12px;padding:12px;color:#FFD166;font-size:13px;font-weight:700;cursor:pointer;font-family:Cairo,sans-serif;margin-bottom:8px">📥 استيراد نسخة احتياطية</button>';
+    h+='<button onclick="openModal(\'confirmClear\')" style="width:100%;background:#FF6B6B15;border:1.5px solid #FF6B6B33;border-radius:13px;padding:12px;color:#FF6B6B;font-size:13px;font-weight:700;cursor:pointer;font-family:Cairo,sans-serif">🗑️ مسح جميع البيانات</button>';
+    h+='</div>';
   }
+
   h+='</div>';
   h+=buildModal();
   return h;
 }
 
-// ══════════════════════════════════════════════════════════
-// DEBTS PAGE
-// ══════════════════════════════════════════════════════════
-function pageDebts(){
-  if(debtPage==="detail"&&curPersonId){
-    return pagePersonDetail(curPersonId);
-  }
-  return pagePersonList();
-}
-
-function pagePersonList(){
-  var cur=APP.currency;
-  var sum=debtSummary();
-  var h="";
-
-  h+='<div style="background:linear-gradient(160deg,#1a1d2e,#0F1117);padding:48px 20px 14px">';
-  h+='<div style="font-size:20px;font-weight:900;margin-bottom:4px">🤝 السلف والديون</div>';
-  h+='<div style="font-size:11px;color:#555;margin-bottom:14px">تتبع من يدينك ومن أنت مدين له</div>';
-
-  // Summary cards
-  h+='<div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:12px">';
-  h+='<div class="card" style="margin-bottom:0;background:#0a1f0a;border:1px solid #06D6A022">';
-  h+='<div style="font-size:10px;color:#555;margin-bottom:3px">يدينون لك</div>';
-  h+='<div style="font-size:19px;font-weight:900;color:#06D6A0">'+sum.owed.toLocaleString()+'</div>';
-  h+='<div style="font-size:9px;color:#444">'+cur+'</div></div>';
-  h+='<div class="card" style="margin-bottom:0;background:#1f0a0a;border:1px solid #FF6B6B22">';
-  h+='<div style="font-size:10px;color:#555;margin-bottom:3px">أنت مدين</div>';
-  h+='<div style="font-size:19px;font-weight:900;color:#FF8B94">'+sum.owing.toLocaleString()+'</div>';
-  h+='<div style="font-size:9px;color:#444">'+cur+'</div></div>';
-  h+='</div>';
-
-  h+='<button onclick="openDebtModal(\'addPerson\')" style="width:100%;background:#1E2030;border:1.5px dashed #B8B5FF55;border-radius:13px;padding:11px;color:#B8B5FF;font-size:13px;cursor:pointer;font-family:Cairo,sans-serif;margin-bottom:4px">+ إضافة شخص</button>';
-  h+='</div>';
-
-  h+='<div style="padding:12px 20px">';
-  if(APP.persons.length===0){
-    h+='<div style="text-align:center;padding:40px 20px">';
-    h+='<div style="font-size:50px;margin-bottom:12px;opacity:.3">🤝</div>';
-    h+='<div style="font-size:14px;color:#444">لا يوجد أشخاص بعد</div>';
-    h+='<div style="font-size:11px;color:#333;margin-top:6px">ابدأ بإضافة شخص لتتبع السلف</div>';
-    h+='</div>';
-  } else {
-    // Sort: with balance first (those who owe most / you owe most)
-    var sorted=APP.persons.slice().sort(function(a,b){
-      return Math.abs(personBalance(b))-Math.abs(personBalance(a));
-    });
-    sorted.forEach(function(p){
-      var bal=personBalance(p);
-      var txCount=(p.transactions||[]).length;
-      var balColor=bal>0?"#06D6A0":bal<0?"#FF8B94":"#555";
-      var balLabel=bal>0?"يدين لك":bal<0?"أنت مدين":"مسدد ✓";
-      h+='<div class="person-card" onclick="openPersonDetail(\''+p.id+'\')">';
-      h+='<div class="person-avatar" style="background:'+p.color+'22;font-size:24px">'+p.avatar+'</div>';
-      h+='<div style="flex:1">';
-      h+='<div style="font-size:14px;font-weight:700;color:#ddd">'+p.name+'</div>';
-      h+='<div style="font-size:10px;color:#555;margin-top:1px">'+txCount+' معاملة'+' • '+balLabel+'</div>';
-      h+='</div>';
-      h+='<div style="text-align:left">';
-      if(bal!==0){
-        h+='<div style="font-size:16px;font-weight:900;color:'+balColor+'">'+Math.abs(bal).toLocaleString()+'</div>';
-        h+='<div style="font-size:9px;color:#444">'+cur+'</div>';
-      } else {
-        h+='<div style="font-size:20px;opacity:.35">✓</div>';
-      }
-      h+='</div>';
-      h+='</div>';
-    });
-  }
-  h+='</div>';
-  h+=buildDebtModal();
-  return h;
-}
-
-function pagePersonDetail(pid){
-  var p=getPerson(pid);
-  if(!p){ debtPage="list"; curPersonId=null; return pagePersonList(); }
-  var cur=APP.currency;
-  var bal=personBalance(p);
-  var balColor=bal>0?"#06D6A0":bal<0?"#FF8B94":"#888";
-  var txs=(p.transactions||[]).slice().reverse(); // newest first
-  var h="";
-
-  h+='<div style="background:linear-gradient(160deg,#1a1d2e,#0F1117);padding:48px 20px 16px">';
-  h+='<div style="display:flex;align-items:center;gap:10px;margin-bottom:14px">';
-  h+='<button onclick="backToList()" style="background:#1E2030;border:none;border-radius:99px;width:34px;height:34px;color:#888;cursor:pointer;font-size:16px;flex-shrink:0">←</button>';
-  h+='<div class="person-avatar" style="background:'+p.color+'22;width:40px;height:40px;font-size:22px">'+p.avatar+'</div>';
-  h+='<div style="flex:1">';
-  h+='<div style="font-size:18px;font-weight:900">'+p.name+'</div>';
-  h+='<div style="font-size:10px;color:#555">'+(p.transactions||[]).length+' معاملة</div>';
-  h+='</div>';
-  h+='<button onclick="openDebtModal(\'editPerson\',\''+p.id+'\')" style="background:#1E2030;border:none;border-radius:8px;width:30px;height:30px;color:#666;cursor:pointer;font-size:13px">✏️</button>';
-  h+='<button onclick="askDelPerson(\''+p.id+'\')" style="background:#1E2030;border:none;border-radius:8px;width:30px;height:30px;color:#555;cursor:pointer;font-size:13px">🗑</button>';
-  h+='</div>';
-
-  // Balance card
-  h+='<div class="card" style="margin-bottom:0;background:'+(bal>0?"#0a1f0a":bal<0?"#1f0a0a":"#1E2030")+';border:1px solid '+(bal>0?"#06D6A022":bal<0?"#FF6B6B22":"#2A2D3E")+'">';
-  h+='<div style="font-size:11px;color:#666;margin-bottom:4px">الرصيد الحالي</div>';
-  h+='<div style="font-size:28px;font-weight:900;color:'+balColor+'">';
-  if(bal>0) h+='+'+bal.toLocaleString()+' <span style="font-size:12px;color:#555">'+cur+'</span>';
-  else if(bal<0) h+=bal.toLocaleString()+' <span style="font-size:12px;color:#555">'+cur+'</span>';
-  else h+='<span style="font-size:16px">مسدد بالكامل ✓</span>';
-  h+='</div>';
-  if(bal>0) h+='<div style="font-size:11px;color:#3a8a5a;margin-top:3px">'+p.name+' يدين لك بهذا المبلغ</div>';
-  else if(bal<0) h+='<div style="font-size:11px;color:#8a3a3a;margin-top:3px">أنت مدين لـ '+p.name+' بهذا المبلغ</div>';
-  h+='</div>';
-  h+='</div>';
-
-  h+='<div style="padding:12px 20px">';
-
-  // Action buttons
-  h+='<div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:8px;margin-bottom:12px">';
-  h+='<button onclick="openDebtModal(\'addTx\',\''+p.id+'\',\'lend\')" style="background:#06D6A015;border:1.5px solid #06D6A033;border-radius:12px;padding:10px 0;color:#06D6A0;font-size:11px;font-weight:700;cursor:pointer;font-family:Cairo,sans-serif;text-align:center">💸<br>سلّفته</button>';
-  h+='<button onclick="openDebtModal(\'addTx\',\''+p.id+'\',\'borrow\')" style="background:#FF6B6B15;border:1.5px solid #FF6B6B33;border-radius:12px;padding:10px 0;color:#FF8B94;font-size:11px;font-weight:700;cursor:pointer;font-family:Cairo,sans-serif;text-align:center">🤲<br>اقترضت منه</button>';
-  if(bal!==0){
-    h+='<button onclick="openDebtModal(\'addTx\',\''+p.id+'\',\'settle\')" style="background:#FFD16615;border:1.5px solid #FFD16633;border-radius:12px;padding:10px 0;color:#FFD166;font-size:11px;font-weight:700;cursor:pointer;font-family:Cairo,sans-serif;text-align:center">✅<br>تسديد</button>';
-  } else {
-    h+='<div></div>';
-  }
-  h+='</div>';
-
-  // Transactions list
-  if(txs.length===0){
-    h+='<div style="text-align:center;padding:30px 20px"><div style="font-size:36px;opacity:.3">📋</div><div style="font-size:12px;color:#444;margin-top:8px">لا توجد معاملات بعد</div></div>';
-  } else {
-    h+='<div style="font-size:11px;color:#555;margin-bottom:8px">سجل المعاملات</div>';
-    txs.forEach(function(tx){
-      var isLend=tx.type==="lend";
-      var isBorrow=tx.type==="borrow";
-      var isSettle=tx.type==="settle";
-      var txColor=isLend?"#06D6A0":isBorrow?"#FF8B94":"#FFD166";
-      var txIcon=isLend?"💸":isBorrow?"🤲":"✅";
-      var txLabel=isLend?"سلّفته":isBorrow?"اقترضت منه":"تسديد";
-      var amountSign=isLend?"+":isBorrow?"-":"";
-      var amountColor=isLend?"#06D6A0":isBorrow?"#FF8B94":"#FFD166";
-      if(isSettle){
-        amountSign=tx.amount>0?"+":"";
-        amountColor="#FFD166";
-      }
-      h+='<div class="tx-row" style="border-right-color:'+txColor+'">';
-      h+='<div style="display:flex;align-items:center;justify-content:space-between">';
-      h+='<div style="display:flex;align-items:center;gap:8px">';
-      h+='<span style="font-size:18px">'+txIcon+'</span>';
-      h+='<div>';
-      h+='<div style="font-size:12px;font-weight:700;color:'+txColor+'">'+txLabel+'</div>';
-      if(tx.note) h+='<div style="font-size:10px;color:#555;margin-top:1px">'+tx.note+'</div>';
-      h+='<div style="font-size:9px;color:#444;margin-top:2px">'+dateStr(tx.date)+'</div>';
-      h+='</div></div>';
-      h+='<div style="display:flex;align-items:center;gap:6px">';
-      h+='<div style="text-align:left">';
-      h+='<div style="font-size:14px;font-weight:900;color:'+amountColor+'">'+amountSign+Math.abs(tx.amount).toLocaleString()+'</div>';
-      h+='<div style="font-size:9px;color:#444">'+cur+'</div>';
-      h+='</div>';
-      h+='<button onclick="askDelTx(\''+p.id+'\',\''+tx.id+'\')" style="background:#2A2D3E;border:none;border-radius:7px;width:26px;height:26px;font-size:11px;cursor:pointer;color:#555">🗑</button>';
-      h+='</div></div></div>';
-    });
-  }
-  h+='</div>';
-  h+=buildDebtModal();
-  return h;
-}
-
-// ══════════════════════════════════════════════════════════
-// DEBT MODAL
-// ══════════════════════════════════════════════════════════
-function buildDebtModal(){
-  if(!debtModal) return "";
-  var h='<div class="modal-bg" onclick="bgClickDebt(event)"><div class="modal">';
-  h+='<div class="row" style="margin-bottom:16px">';
-
-  if(debtModal==="addPerson"||debtModal==="editPerson"){
-    var isEdit=debtModal==="editPerson";
-    h+='<span style="font-size:16px;font-weight:800">'+(isEdit?"✏️ تعديل الشخص":"👤 إضافة شخص")+'</span>';
-    h+='<button onclick="closeDebtModal()" style="background:#1E2030;border:none;border-radius:99px;width:30px;height:30px;color:#888;cursor:pointer;font-size:16px">✕</button></div>';
-    h+='<label class="lbl">الاسم</label>';
-    h+='<input id="pname" class="inp" type="text" placeholder="مثل: محمد، الأخ، صديق العمل..." value="'+newPersonName+'" oninput="newPersonName=this.value"/>';
-    h+='<label class="lbl">الرمز التعبيري</label>';
-    h+='<div style="display:flex;flex-wrap:wrap;gap:6px;margin-bottom:12px">';
-    AVATARS.forEach(function(av){
-      h+='<button onclick="setPersonAvatar(\''+av+'\')" style="background:'+(newPersonAvatar===av?"#B8B5FF22":"#1E2030")+';border:2px solid '+(newPersonAvatar===av?"#B8B5FF":"transparent")+';border-radius:9px;padding:6px 8px;font-size:20px;cursor:pointer">'+av+'</button>';
-    });
-    h+='</div>';
-    h+='<label class="lbl">اللون</label>';
-    h+='<div style="display:flex;gap:7px;flex-wrap:wrap;margin-bottom:16px">';
-    PCOLORS.forEach(function(c){
-      h+='<button onclick="setPersonColor(\''+c+'\')" style="width:30px;height:30px;border-radius:99px;background:'+c+';border:'+(newPersonColor===c?"3px solid #fff":"3px solid transparent")+';cursor:pointer"></button>';
-    });
-    h+='</div>';
-    h+='<button onclick="savePerson()" class="btn-main">'+(isEdit?"حفظ التعديل":"إضافة الشخص")+'</button>';
-  }
-
-  else if(debtModal==="addTx"){
-    var typeColor=dtType==="lend"?"#06D6A0":dtType==="borrow"?"#FF8B94":"#FFD166";
-    var typeLabel=dtType==="lend"?"💸 سلّفته":dtType==="borrow"?"🤲 اقترضت منه":"✅ تسديد";
-    h+='<span style="font-size:15px;font-weight:800;color:'+typeColor+'">'+typeLabel+'</span>';
-    h+='<button onclick="closeDebtModal()" style="background:#1E2030;border:none;border-radius:99px;width:30px;height:30px;color:#888;cursor:pointer;font-size:16px">✕</button></div>';
-
-    // Type toggle
-    h+='<div style="display:flex;gap:7px;margin-bottom:12px">';
-    [{v:"lend",l:"💸 سلّفته",c:"#06D6A0"},{v:"borrow",l:"🤲 اقترضت",c:"#FF8B94"},{v:"settle",l:"✅ تسديد",c:"#FFD166"}].forEach(function(t){
-      var sel=dtType===t.v;
-      h+='<button onclick="setDtType(\''+t.v+'\')" style="flex:1;background:'+(sel?t.c+"22":"#1E2030")+';border:1.5px solid '+(sel?t.c+"66":"#2A2D3E")+';border-radius:10px;padding:8px 0;color:'+(sel?t.c:"#555")+';font-size:11px;font-weight:'+(sel?"700":"400")+';cursor:pointer;font-family:Cairo,sans-serif">'+t.l+'</button>';
-    });
-    h+='</div>';
-
-    // Amount display
-    h+='<div style="font-size:38px;font-weight:900;color:'+(dtAmount?"#fff":"#333")+';text-align:center;margin-bottom:10px">'+(dtAmount||"0")+' <span style="font-size:13px;color:#555">'+APP.currency+'</span></div>';
-    h+=numpadDebt();
-
-    // Note
-    h+='<label class="lbl">ملاحظة (اختياري)</label>';
-    h+='<input id="dtnote" class="inp" type="text" placeholder="مثل: قرض الحفلة، كراء سيارة..." value="'+dtNote+'" oninput="dtNote=this.value"/>';
-
-    // Date
-    h+='<label class="lbl">التاريخ</label>';
-    h+='<input id="dtdate" class="inp" type="date" value="'+dtDate+'" oninput="dtDate=this.value" style="color-scheme:dark"/>';
-
-    // Settle quick buttons
-    if(dtType==="settle"&&curPersonId){
-      var p2=getPerson(curPersonId);
-      if(p2){
-        var b2=personBalance(p2);
-        if(b2!==0){
-          h+='<button onclick="setDtAmount(\''+Math.abs(b2)+'\')" style="width:100%;background:#1E2030;border:1.5px dashed #FFD16644;border-radius:10px;padding:8px;color:#FFD166;font-size:11px;cursor:pointer;font-family:Cairo,sans-serif;margin-bottom:8px">تسديد كامل المبلغ: '+Math.abs(b2).toLocaleString()+' '+APP.currency+'</button>';
-        }
-      }
-    }
-
-    h+='<button onclick="saveTx()" class="btn-main" style="margin-top:4px">تأكيد ✓</button>';
-  }
-
-  else if(debtModal==="confirmDelPerson"){
-    h+='<span style="font-size:16px;font-weight:800">🗑️ حذف الشخص</span>';
-    h+='<button onclick="closeDebtModal()" style="background:#1E2030;border:none;border-radius:99px;width:30px;height:30px;color:#888;cursor:pointer;font-size:16px">✕</button></div>';
-    h+='<div style="font-size:14px;color:#ccc;text-align:center;margin:20px 0;line-height:1.8">سيتم حذف الشخص وجميع معاملاته<br><span style="color:#FF6B6B;font-weight:700">لا يمكن التراجع عن هذا الإجراء</span></div>';
-    h+='<div style="display:flex;gap:10px">';
-    h+='<button onclick="doDelPerson()" style="flex:1;background:#FF6B6B;border:none;border-radius:13px;padding:14px;color:#fff;font-size:15px;font-weight:800;cursor:pointer;font-family:Cairo,sans-serif">نعم، احذف</button>';
-    h+='<button onclick="closeDebtModal()" style="flex:1;background:#1E2030;border:none;border-radius:13px;padding:14px;color:#888;font-size:15px;cursor:pointer;font-family:Cairo,sans-serif">إلغاء</button>';
-    h+='</div>';
-  }
-
-  else if(debtModal==="confirmDelTx"){
-    h+='<span style="font-size:16px;font-weight:800">🗑️ حذف المعاملة</span>';
-    h+='<button onclick="closeDebtModal()" style="background:#1E2030;border:none;border-radius:99px;width:30px;height:30px;color:#888;cursor:pointer;font-size:16px">✕</button></div>';
-    h+='<div style="font-size:14px;color:#ccc;text-align:center;margin:20px 0">هل تريد حذف هذه المعاملة؟</div>';
-    h+='<div style="display:flex;gap:10px">';
-    h+='<button onclick="doDelTx()" style="flex:1;background:#FF6B6B;border:none;border-radius:13px;padding:14px;color:#fff;font-size:15px;font-weight:800;cursor:pointer;font-family:Cairo,sans-serif">نعم، احذف</button>';
-    h+='<button onclick="closeDebtModal()" style="flex:1;background:#1E2030;border:none;border-radius:13px;padding:14px;color:#888;font-size:15px;cursor:pointer;font-family:Cairo,sans-serif">إلغاء</button>';
-    h+='</div>';
-  }
-
-  h+='</div></div>';
-  return h;
-}
-
-function numpadDebt(){
-  var h='<div class="numpad">';
-  ["1","2","3","4","5","6","7","8","9",".","0","⌫"].forEach(function(k){
-    h+='<button class="nk'+(k==="⌫"?" del":"")+'" onclick="nkPressDebt(\''+k+'\')">'+k+'</button>';
-  });
-  h+='</div>';
-  return h;
-}
-
-// ══════════════════════════════════════════════════════════
-// DEBT ACTIONS
-// ══════════════════════════════════════════════════════════
-function openDebtModal(m, pid, txType){
-  if(m==="addPerson"){ newPersonName=""; newPersonAvatar="👨"; newPersonColor="#B8B5FF"; editPersonId=null; }
-  if(m==="editPerson"&&pid){
-    var p=getPerson(pid);
-    if(p){ newPersonName=p.name; newPersonAvatar=p.avatar; newPersonColor=p.color; editPersonId=pid; }
-  }
-  if(m==="addTx"){ dtAmount=""; dtNote=""; dtDate=td(); if(txType) dtType=txType; }
-  if(pid) curPersonId=pid;
-  debtModal=m; render();
-}
-
-function closeDebtModal(){ debtModal=null; render(); }
-function bgClickDebt(e){ if(e.target===e.currentTarget){ debtModal=null; render(); } }
-
-function setPersonAvatar(av){ newPersonAvatar=av; render(); }
-function setPersonColor(c){ newPersonColor=c; render(); }
-function setDtType(t){ dtType=t; render(); }
-function setDtAmount(v){ dtAmount=String(v); render(); }
-
-function nkPressDebt(k){
-  if(k==="⌫"){ dtAmount=dtAmount.slice(0,-1); }
-  else if(k==="."&&dtAmount.includes(".")){ return; }
-  else if(dtAmount.length>=9){ return; }
-  else{ dtAmount+=k; }
-  render();
-}
-
-function savePerson(){
-  if(!newPersonName.trim()){ toast("أدخل الاسم","e"); return; }
-  if(editPersonId){
-    APP.persons=APP.persons.map(function(p){
-      if(p.id!==editPersonId) return p;
-      return Object.assign({},p,{name:newPersonName.trim(),avatar:newPersonAvatar,color:newPersonColor});
-    });
-    toast("تم التعديل ✓");
-  } else {
-    APP.persons.push({
-      id:Date.now()+"_"+Math.random().toString(36).slice(2),
-      name:newPersonName.trim(),
-      avatar:newPersonAvatar,
-      color:newPersonColor,
-      transactions:[]
-    });
-    toast("تمت إضافة الشخص ✓");
-  }
-  save(); debtModal=null; render();
-}
-
-function openPersonDetail(pid){ curPersonId=pid; debtPage="detail"; render(); }
-function backToList(){ debtPage="list"; curPersonId=null; debtModal=null; render(); }
-
-function saveTx(){
-  var v=parseFloat(dtAmount);
-  if(isNaN(v)||v<=0){ toast("أدخل مبلغاً صحيحاً","e"); return; }
-  var p=getPerson(curPersonId);
-  if(!p){ toast("خطأ في الشخص","e"); return; }
-  if(!p.transactions) p.transactions=[];
-  var amount=v;
-  if(dtType==="settle"){
-    // settle: positive reduces what they owe, negative reduces what you owe
-    var bal=personBalance(p);
-    if(bal>0) amount=v; // they owe you, so positive settles their debt
-    else amount=-v;     // you owe them, so negative settles your debt
-  }
-  p.transactions.push({
-    id:Date.now()+"_"+Math.random().toString(36).slice(2),
-    type:dtType,
-    amount: dtType==="settle"?amount:v,
-    note:dtNote.trim(),
-    date:dtDate||td()
-  });
-  save(); debtModal=null;
-  var label=dtType==="lend"?"تم تسجيل السلفة":dtType==="borrow"?"تم تسجيل القرض":"تم تسجيل التسديد";
-  toast(label+" ✓"); render();
-}
-
-function askDelPerson(pid){ pendingDelPersonId=pid; debtModal="confirmDelPerson"; render(); }
-function doDelPerson(){
-  APP.persons=APP.persons.filter(function(p){return p.id!==pendingDelPersonId;});
-  save(); debtModal=null; debtPage="list"; curPersonId=null;
-  toast("تم حذف الشخص","e"); render();
-}
-
-function askDelTx(pid,txId){ curPersonId=pid; pendingDelTxId=txId; debtModal="confirmDelTx"; render(); }
-function doDelTx(){
-  var p=getPerson(curPersonId);
-  if(p) p.transactions=(p.transactions||[]).filter(function(tx){return tx.id!==pendingDelTxId;});
-  save(); debtModal=null;
-  toast("تم حذف المعاملة","e"); render();
-}
-
-// ══════════════════════════════════════════════════════════
-// BUDGET ACTIONS
-// ══════════════════════════════════════════════════════════
-function setCurM(mk){ var vis=visibleMonths(); if(vis.indexOf(mk)===-1) return; curM=mk; render(); }
-function setTab(t){ curTab=t; render(); }
-function setCur(c){ APP.currency=c; save(); render(); }
-function selCur(el){ setCur(el.dataset.c); }
-function openModal(m){
-  if((m==="addCharge"||m==="addIncome"||m==="savings")&&guardLocked()) return;
-  modal=m; numVal=""; numStep="info"; render();
-}
-function closeModal(){ modal=null; render(); }
-function bgClick(e){ if(e.target===e.currentTarget){ modal=null; render(); } }
-
-function togglePaid(id){
-  if(guardLocked()) return;
-  var md=gm(curM);
-  md.charges=md.charges.map(function(c){
-    if(c.id!==id) return c;
-    var nowPaid=!c.paid;
-    return Object.assign({},c,{
-      paid:nowPaid,
-      paidAt:nowPaid?new Date().toLocaleString("ar-MA",{day:"2-digit",month:"2-digit",year:"numeric",hour:"2-digit",minute:"2-digit"}):null
-    });
-  });
-  APP.months[curM]=md; save(); render();
-}
-
-function nkPress(k){
-  if(k==="⌫"){ numVal=numVal.slice(0,-1); }
-  else if(k==="."&&numVal.includes(".")){ return; }
-  else if(numVal.length>=9){ return; }
-  else{ numVal+=k; }
-  render();
-}
-
-function setIcon(ic){ numIcon=ic; render(); }
-function setCol(c){ numCol=c; render(); }
-function nextStep(){ if(!numLabel.trim()){ toast("أدخل الاسم أولاً","e"); return; } numStep="amount"; numVal=""; render(); }
-function prevStep(){ numStep="info"; render(); }
-
-function saveItem(){
-  if(guardLocked()) return;
-  var v=parseFloat(numVal);
-  if(!numLabel.trim()){ toast("أدخل الاسم","e"); return; }
-  if(isNaN(v)||v<=0){ toast("أدخل مبلغاً صحيحاً","e"); return; }
-  var md=gm(curM);
-  var ni={id:Date.now()+"",label:numLabel.trim(),amount:v,icon:numIcon,color:numCol,paid:false};
-  if(modal==="addCharge") md.charges.push(ni); else md.incomes.push(ni);
-  APP.months[curM]=md; save(); modal=null; numStep="info";
-  toast("تمت الإضافة ✓"); render();
-}
-
-function saveSavings(){
-  if(guardLocked()) return;
-  var v=parseFloat(numVal)||0;
-  var md=gm(curM);
-  var sp=md.incomes.reduce(function(s,i){return s+i.amount;},0)-md.charges.reduce(function(s,c){return s+c.amount;},0);
-  if(v>sp&&sp>0) toast("يتجاوز الفائض المتاح!","w");
-  md.savings=v; APP.months[curM]=md; save(); modal=null;
-  toast("تم حفظ الادخار ✓"); render();
-}
-
-function openEdit(id,type){
-  if(guardLocked()) return;
-  var md=gm(curM);
-  var arr=type==="charge"?md.charges:md.incomes;
-  var item=arr.find(function(x){return x.id===id;});
-  if(!item) return;
-  editId=id; editType=type;
-  numVal=String(item.amount); numLabel=item.label; numIcon=item.icon; numCol=item.color;
-  modal="editItem"; render();
-}
-
-function saveEdit(){
-  if(guardLocked()) return;
-  var v=parseFloat(numVal);
-  if(isNaN(v)||v<=0){ toast("أدخل مبلغاً صحيحاً","e"); return; }
-  var md=gm(curM);
-  var arr=editType==="charge"?md.charges:md.incomes;
-  arr=arr.map(function(x){ return x.id===editId?Object.assign({},x,{label:numLabel||x.label,amount:v,icon:numIcon,color:numCol}):x; });
-  if(editType==="charge") md.charges=arr; else md.incomes=arr;
-  APP.months[curM]=md; save(); modal=null;
-  toast("تم الحفظ ✓"); render();
-}
-
-function askDel(id,type){
-  if(guardLocked()) return;
-  pendingDelId=id; pendingDelType=type; modal="confirmDel"; render();
-}
-function doDelItem(){
-  if(guardLocked()) return;
-  var md=gm(curM);
-  if(pendingDelType==="charge") md.charges=md.charges.filter(function(x){return x.id!==pendingDelId;});
-  else md.incomes=md.incomes.filter(function(x){return x.id!==pendingDelId;});
-  APP.months[curM]=md; save(); modal=null;
-  toast("تم الحذف","e"); render();
-}
-
-function doClear(){
-  APP={currency:"MAD",months:{},persons:[]}; save(); modal=null;
-  toast("تم مسح جميع البيانات","e"); render();
-}
-
-function doExport(){
-  var d=new Date();
-  var blob=new Blob([JSON.stringify(APP,null,2)],{type:"application/json"});
-  var url=URL.createObjectURL(blob);
-  var a=document.createElement("a");
-  a.href=url; a.download="masarifi_"+d.getFullYear()+"-"+(d.getMonth()+1)+"-"+d.getDate()+".json";
-  a.click(); URL.revokeObjectURL(url);
-  toast("تم التصدير ✓");
-}
-
-var _importedData=null;
-function onFileChosen(input){
-  var file=input.files[0]; if(!file) return;
-  var lbl=document.getElementById("fileNameLabel");
-  if(lbl) lbl.textContent=file.name;
-  var reader=new FileReader();
-  reader.onload=function(e){
-    try{
-      var imp=JSON.parse(e.target.result);
-      if(!imp.months){ toast("ملف غير صالح","e"); _importedData=null; return; }
-      _importedData=imp;
-      if(lbl) lbl.style.color="#06D6A0";
-    }catch(err){ toast("خطأ في قراءة الملف","e"); _importedData=null; }
-  };
-  reader.readAsText(file);
-}
-function doImportFile(){
-  if(!_importedData){ toast("اختر ملف JSON أولاً","e"); return; }
-  APP=_importedData; if(!APP.persons) APP.persons=[];
-  _importedData=null; save(); modal=null;
-  toast("تم الاستيراد بنجاح ✓"); render();
-}
-
-// ── PASSWORD ACTIONS ──────────────────────────────────────
-function openPwdModal(mode){ pwdVal=""; pwdMode=mode; modal="pwd"; render(); }
-function pwdKey(k){
-  if(k==="⌫"){ pwdVal=pwdVal.slice(0,-1); render(); return; }
-  if(k==="✓"){ pwdConfirm(); return; }
-  if(pwdVal.length>=12) return;
-  pwdVal+=k; render();
-}
-function pwdConfirm(){
-  if(pwdMode==="unlock") doPwdUnlock();
-  else if(pwdMode==="set") doPwdSet();
-  else if(pwdMode==="change-old") doPwdChangeVerify();
-  else if(pwdMode==="change-new") doPwdChangeNew();
-  else if(pwdMode==="remove") doPwdRemove();
-}
-function doPwdUnlock(){
-  if(!pwdVal){ toast("أدخل كلمة المرور","e"); return; }
-  if(pwdVal!==getPwd()){ toast("كلمة المرور خاطئة ✗","e"); pwdVal=""; render(); return; }
-  setUnlocked(); modal=null; pwdVal="";
-  toast("تم فتح القفل ✓ جلسة مؤقتة"); render();
-}
-function doPwdSet(){
-  if(!pwdVal||pwdVal.length<1){ toast("أدخل كلمة مرور","e"); return; }
-  setPwdStore(pwdVal); modal=null; pwdVal="";
-  toast("تم تعيين كلمة المرور ✓"); render();
-}
-function doPwdChangeVerify(){
-  if(pwdVal!==getPwd()){ toast("كلمة المرور الحالية خاطئة ✗","e"); pwdVal=""; render(); return; }
-  pwdOldOk=true; pwdVal=""; pwdMode="change-new"; render();
-}
-function doPwdChangeNew(){
-  if(!pwdVal){ toast("أدخل كلمة مرور جديدة","e"); return; }
-  setPwdStore(pwdVal); modal=null; pwdVal=""; pwdOldOk=false;
-  toast("تم تغيير كلمة المرور ✓"); render();
-}
-function doPwdRemove(){
-  if(pwdVal!==getPwd()){ toast("كلمة المرور خاطئة ✗","e"); pwdVal=""; render(); return; }
-  removePwd(); reLock(); modal=null; pwdVal="";
-  toast("تمت إزالة كلمة المرور","w"); render();
-}
-function reLockNow(){ reLock(); toast("تم إعادة القفل 🔒"); render(); }
-
-// ══════════════════════════════════════════════════════════
-// ITEM ROW
-// ══════════════════════════════════════════════════════════
+// ── ITEM ROW ──────────────────────────────────────────────
 function itemRow(item,cur,showPaid,locked){
   var h='<div class="irow" style="background:'+(showPaid&&item.paid?"#0d1f0d":"#1E2030")+';opacity:'+(showPaid&&item.paid?.75:1)+';border-right:3px solid '+(showPaid&&item.paid?"#06D6A0":item.color)+'">';
   h+='<div style="display:flex;align-items:center;gap:8px;flex:1">';
@@ -998,6 +515,7 @@ function itemRow(item,cur,showPaid,locked){
     if(!locked){
       h+='<button onclick="togglePaid(\''+item.id+'\')" style="background:'+(item.paid?"#06D6A033":"transparent")+';border:2px solid '+(item.paid?"#06D6A0":"#333")+';border-radius:99px;width:26px;height:26px;cursor:pointer;color:#06D6A0;font-size:13px;flex-shrink:0">'+(item.paid?"✓":"")+'</button>';
     } else {
+      // Read-only checkmark display
       h+='<div style="border:2px solid #333;border-radius:99px;width:26px;height:26px;display:flex;align-items:center;justify-content:center;color:#06D6A0;font-size:13px;flex-shrink:0;opacity:.5">'+(item.paid?"✓":"")+'</div>';
     }
   }
@@ -1017,9 +535,7 @@ function itemRow(item,cur,showPaid,locked){
   return h;
 }
 
-// ══════════════════════════════════════════════════════════
-// NUMPAD (BUDGET)
-// ══════════════════════════════════════════════════════════
+// ── NUMPAD ────────────────────────────────────────────────
 function numpad(){
   var h='<div class="numpad">';
   ["1","2","3","4","5","6","7","8","9",".","0","⌫"].forEach(function(k){
@@ -1029,9 +545,7 @@ function numpad(){
   return h;
 }
 
-// ══════════════════════════════════════════════════════════
-// BUDGET MODAL
-// ══════════════════════════════════════════════════════════
+// ── MODAL ─────────────────────────────────────────────────
 function buildModal(){
   if(!modal) return "";
   var h='<div class="modal-bg" onclick="bgClick(event)"><div class="modal">';
@@ -1109,21 +623,30 @@ function buildModal(){
     h+='</div>';
   }
 
+  // ── PASSWORD MODAL ────────────────────────────────────────
   else if(modal==="pwd"){
-    var pTitle="",pSub="",pBtn="",pBtnFn="";
-    if(pwdMode==="unlock"){ pTitle="🔓 فتح الشهر المقفل"; pSub="أدخل كلمة المرور للمتابعة"; pBtn="فتح القفل"; pBtnFn="doPwdUnlock()"; }
-    else if(pwdMode==="set"){ pTitle="🔑 تعيين كلمة مرور"; pSub="أدخل كلمة مرور جديدة"; pBtn="حفظ كلمة المرور"; pBtnFn="doPwdSet()"; }
-    else if(pwdMode==="change-old"){ pTitle="✏️ تغيير كلمة المرور"; pSub="أدخل كلمة المرور الحالية"; pBtn="تحقق"; pBtnFn="doPwdChangeVerify()"; }
-    else if(pwdMode==="change-new"){ pTitle="✏️ كلمة المرور الجديدة"; pSub="أدخل كلمة المرور الجديدة"; pBtn="حفظ"; pBtnFn="doPwdChangeNew()"; }
-    else if(pwdMode==="remove"){ pTitle="🗑️ إزالة كلمة المرور"; pSub="أدخل كلمة المرور للتأكيد"; pBtn="إزالة كلمة المرور"; pBtnFn="doPwdRemove()"; }
+    var pTitle="", pSub="", pBtn="", pBtnFn="";
+    if(pwdMode==="unlock"){
+      pTitle="🔓 فتح الشهر المقفل"; pSub="أدخل كلمة المرور للمتابعة"; pBtn="فتح القفل"; pBtnFn="doPwdUnlock()";
+    } else if(pwdMode==="set"){
+      pTitle="🔑 تعيين كلمة مرور"; pSub="أدخل كلمة مرور جديدة (أرقام أو حروف)"; pBtn="حفظ كلمة المرور"; pBtnFn="doPwdSet()";
+    } else if(pwdMode==="change-old"){
+      pTitle="✏️ تغيير كلمة المرور"; pSub="أدخل كلمة المرور الحالية أولاً"; pBtn="تحقق"; pBtnFn="doPwdChangeVerify()";
+    } else if(pwdMode==="change-new"){
+      pTitle="✏️ كلمة المرور الجديدة"; pSub="أدخل كلمة المرور الجديدة"; pBtn="حفظ"; pBtnFn="doPwdChangeNew()";
+    } else if(pwdMode==="remove"){
+      pTitle="🗑️ إزالة كلمة المرور"; pSub="أدخل كلمة المرور الحالية للتأكيد"; pBtn="إزالة كلمة المرور"; pBtnFn="doPwdRemove()";
+    }
     h+='<span style="font-size:16px;font-weight:800">'+pTitle+'</span>';
     h+='<button onclick="closeModal()" style="background:#1E2030;border:none;border-radius:99px;width:30px;height:30px;color:#888;cursor:pointer;font-size:16px">✕</button></div>';
     h+='<div style="font-size:12px;color:#666;margin-bottom:14px">'+pSub+'</div>';
+    // Password display (dots)
     var dots=pwdVal.split("").map(function(){ return "●"; }).join(" ");
     h+='<div style="font-size:28px;letter-spacing:6px;text-align:center;color:'+(pwdVal?"#B8B5FF":"#333")+';background:#1E2030;border-radius:12px;padding:14px;margin-bottom:12px;min-height:58px">'+(dots||'<span style="color:#333;font-size:16px;letter-spacing:0">اكتب هنا...</span>')+'</div>';
+    // Simple keyboard: digits + letters row + backspace
     h+='<div style="display:grid;grid-template-columns:repeat(3,1fr);gap:7px;margin-bottom:10px">';
     ["1","2","3","4","5","6","7","8","9","⌫","0","✓"].forEach(function(k){
-      var isBk=k==="⌫",isOk=k==="✓";
+      var isBk=k==="⌫", isOk=k==="✓";
       var bg=isBk?"background:#FF6B6B22;border-color:#FF6B6B55;color:#FF6B6B":isOk?"background:linear-gradient(135deg,#B8B5FF,#8B5CF6);border-color:transparent;color:#fff":"background:#1E2030;border-color:#2A2D3E;color:#fff";
       h+='<button style="border-radius:12px;padding:15px 0;font-size:19px;font-weight:700;cursor:pointer;border:1.5px solid #2A2D3E;font-family:Cairo,sans-serif;'+bg+'" onclick="pwdKey(\''+k+'\')">'+k+'</button>';
     });
@@ -1135,181 +658,314 @@ function buildModal(){
   return h;
 }
 
-// ══════════════════════════════════════════════════════════
-// SETTINGS TAB
-// ══════════════════════════════════════════════════════════
-function buildSettingsTab(){
-  var h="";
-  h+='<div class="card"><div style="font-size:11px;color:#444;margin-bottom:9px">العملة</div><div style="display:flex;flex-wrap:wrap;gap:7px">';
-  CURRS.forEach(function(c){
-    var sel=APP.currency===c;
-    var st=sel?'border:1.5px solid #B8B5FF;color:#B8B5FF;background:#B8B5FF15':'';
-    h+='<span id="cur_'+c+'" onclick="selCur(this)" data-c="'+c+'" style="display:inline-block;padding:5px 13px;border-radius:99px;font-size:11px;cursor:pointer;'+st+'">'+c+'</span>';
+// ── BIND ──────────────────────────────────────────────────
+function bind(){}
+
+// ── ACTIONS ───────────────────────────────────────────────
+function setCurM(mk){
+  // Only allow switching to visible months
+  var vis=visibleMonths();
+  if(vis.indexOf(mk)===-1) return;
+  curM=mk; render();
+}
+function setTab(t){ curTab=t; render(); }
+function setCur(c){ APP.currency=c; save(); render(); }
+function selCur(el){ setCur(el.dataset.c); }
+
+function openModal(m){
+  if((m==="addCharge"||m==="addIncome"||m==="savings")&&guardLocked()) return;
+  modal=m; numVal=""; numStep="info"; render();
+}
+function closeModal(){ modal=null; render(); }
+function bgClick(e){ if(e.target===e.currentTarget){ modal=null; render(); } }
+
+function togglePaid(id){
+  if(guardLocked()) return;
+  var md=gm(curM);
+  md.charges=md.charges.map(function(c){
+    if(c.id!==id) return c;
+    var nowPaid=!c.paid;
+    return Object.assign({},c,{
+      paid: nowPaid,
+      paidAt: nowPaid ? new Date().toLocaleString("ar-MA",{day:"2-digit",month:"2-digit",year:"numeric",hour:"2-digit",minute:"2-digit"}) : null
+    });
   });
-  h+='</div></div>';
-
-  var hasPwd=!!getPwd();
-  var dayNow=new Date().getDate();
-  var daysLeft=dayNow<27?27-dayNow:0;
-  h+='<div class="card" style="border:1px solid #FF6B6B22">';
-  h+='<div style="font-size:11px;color:#FF8B94;margin-bottom:8px;font-weight:700">🔒 نظام قفل الشهر السابق</div>';
-  if(daysLeft>0){
-    h+='<div style="font-size:12px;color:#666;line-height:1.8;margin-bottom:10px">الشهر السابق مفتوح للتعديل<br><span style="color:#FFD166">يُقفل بعد <b style="color:#fff">'+daysLeft+' يوم</b> (منتصف ليل 27)</span></div>';
-  } else {
-    h+='<div style="font-size:12px;color:#666;line-height:1.8;margin-bottom:10px">الشهر السابق <span style="color:#FF6B6B;font-weight:700">مقفل الآن 🔒</span></div>';
-  }
-  h+='<div style="border-top:1px solid #2A2D3E;padding-top:10px">';
-  h+='<div style="font-size:11px;color:#888;margin-bottom:8px">🔑 كلمة مرور فتح القفل</div>';
-  if(!hasPwd){
-    h+='<button onclick="openPwdModal(\'set\')" style="width:100%;background:#1E2030;border:1.5px dashed #B8B5FF55;border-radius:11px;padding:10px;color:#B8B5FF;font-size:12px;cursor:pointer;font-family:Cairo,sans-serif">+ تعيين كلمة مرور</button>';
-    h+='<div style="font-size:10px;color:#444;margin-top:6px">بدون كلمة مرور: الشهر المقفل يظل مغلقاً تماماً</div>';
-  } else {
-    h+='<div style="display:flex;gap:8px;margin-bottom:7px">';
-    h+='<button onclick="openPwdModal(\'change\')" style="flex:1;background:#1E2030;border:1.5px solid #B8B5FF33;border-radius:11px;padding:9px;color:#B8B5FF;font-size:11px;cursor:pointer;font-family:Cairo,sans-serif">✏️ تغيير</button>';
-    h+='<button onclick="openPwdModal(\'remove\')" style="flex:1;background:#1E2030;border:1.5px solid #FF6B6B33;border-radius:11px;padding:9px;color:#FF6B6B;font-size:11px;cursor:pointer;font-family:Cairo,sans-serif">🗑️ إزالة</button>';
-    if(isUnlocked()) h+='<button onclick="reLockNow()" style="flex:1;background:#FF6B6B15;border:1.5px solid #FF6B6B44;border-radius:11px;padding:9px;color:#FF8B94;font-size:11px;cursor:pointer;font-family:Cairo,sans-serif">🔒 إعادة قفل</button>';
-    h+='</div>';
-    h+='<div style="font-size:10px;color:#444">✓ كلمة المرور مضبوطة</div>';
-  }
-  h+='</div></div>';
-
-  h+='<div class="card"><div style="font-size:11px;color:#444;margin-bottom:10px">ملخص الأشهر</div>';
-  var now=tm();
-  var nowIdx=ALL.indexOf(now);
-  var rangeStart=ALL[Math.max(0,nowIdx-4)];
-  var rangeEnd=ALL[Math.min(ALL.length-1,nowIdx+4)];
-  var filteredMonths=Object.keys(APP.months).sort().filter(function(mk){ return mk>=rangeStart&&mk<=rangeEnd; });
-  if(filteredMonths.length===0){
-    h+='<div style="font-size:11px;color:#555;text-align:center;padding:10px">لا توجد بيانات في هذه الفترة</div>';
-  } else {
-    filteredMonths.forEach(function(mk){
-      var mm=APP.months[mk];
-      var ti=mm.incomes.reduce(function(s,i){return s+i.amount;},0);
-      var tc=mm.charges.reduce(function(s,c){return s+c.amount;},0);
-      var sv2=mm.savings||0, b=ti-tc;
-      var isNow=mk===now, isLk=isMonthLocked(mk);
-      h+='<div class="row" style="font-size:12px;margin-bottom:6px;padding:6px 8px;border-bottom:1px solid #2A2D3E;border-radius:8px;background:'+(isNow?"#B8B5FF08":"transparent")+'">';
-      h+='<div style="display:flex;align-items:center;gap:6px"><span style="color:'+(isNow?"#B8B5FF":"#888")+'">'+mshort(mk)+'</span>';
-      if(isNow) h+='<span style="font-size:9px;background:#B8B5FF22;color:#B8B5FF;border-radius:99px;padding:1px 6px">الآن</span>';
-      if(isLk) h+='<span style="font-size:10px;opacity:.5">🔒</span>';
-      h+='</div>';
-      h+='<div style="display:flex;align-items:center;gap:10px">';
-      if(sv2>0) h+='<span style="font-size:11px;color:#74B9FF">🏦'+sv2.toLocaleString()+'</span>';
-      h+='<span style="font-weight:700;color:'+(b>=0?"#06D6A0":"#FF6B6B")+'">'+(b>=0?"+":"")+b.toLocaleString()+'</span></div></div>';
-    });
-  }
-  h+='</div>';
-
-  // Notifications
-  var notifSupported=('Notification' in window);
-  var notifGranted=notifSupported&&Notification.permission==="granted";
-  var notifDenied=notifSupported&&Notification.permission==="denied";
-  var nOn=localStorage.getItem("masarifi_notif")==="1";
-  var nInterval=parseInt(localStorage.getItem("masarifi_notif_interval")||"60");
-  var intervalOptions=[{val:15,label:"كل 15 دقيقة"},{val:30,label:"كل 30 دقيقة"},{val:60,label:"كل ساعة"},{val:120,label:"كل ساعتين"},{val:180,label:"كل 3 ساعات"},{val:360,label:"كل 6 ساعات"}];
-  h+='<div class="card" style="border:1px solid #B8B5FF22">';
-  h+='<div style="font-size:11px;color:#B8B5FF;margin-bottom:8px;font-weight:700">🔔 تذكير المصاريف غير المدفوعة</div>';
-  if(!notifSupported){
-    h+='<div style="font-size:11px;color:#555">المتصفح لا يدعم الإشعارات</div>';
-  } else if(notifDenied){
-    h+='<div style="font-size:11px;color:#FF8B94;line-height:1.7">تم رفض الإشعارات ✗<br><span style="color:#555">أعد تفعيلها من إعدادات المتصفح يدوياً</span></div>';
-  } else if(!notifGranted){
-    h+='<div style="font-size:11px;color:#666;margin-bottom:10px;line-height:1.7">تذكير دوري بالمصاريف غير المدفوعة للشهر الحالي</div>';
-    h+='<button onclick="enableNotifs()" style="width:100%;background:#B8B5FF15;border:1.5px solid #B8B5FF44;border-radius:12px;padding:11px;color:#B8B5FF;font-size:13px;font-weight:700;cursor:pointer;font-family:Cairo,sans-serif">🔔 تفعيل التذكيرات</button>';
-  } else {
-    h+='<div class="row" style="margin-bottom:12px">';
-    h+='<span style="font-size:12px;color:#888">تفعيل التذكيرات</span>';
-    h+='<button onclick="toggleNotifs()" style="background:'+(nOn?"#06D6A0":"#2A2D3E")+';border:none;border-radius:99px;width:48px;height:26px;cursor:pointer;position:relative;transition:background .3s">';
-    h+='<span style="position:absolute;top:3px;'+(nOn?"left:3px":"right:3px")+';width:20px;height:20px;background:#fff;border-radius:99px;display:block;transition:all .3s"></span></button>';
-    h+='</div>';
-    h+='<div style="font-size:11px;color:#666;margin-bottom:8px">⏱️ فترة التذكير</div>';
-    h+='<div style="display:flex;flex-wrap:wrap;gap:7px;margin-bottom:10px">';
-    intervalOptions.forEach(function(opt){
-      var sel=nInterval===opt.val;
-      h+='<button onclick="setNotifInterval('+opt.val+')" style="background:'+(sel?"#B8B5FF22":"#1E2030")+';border:1.5px solid '+(sel?"#B8B5FF":"#2A2D3E")+';border-radius:99px;padding:5px 12px;font-size:11px;color:'+(sel?"#B8B5FF":"#666")+';cursor:pointer;font-family:Cairo,sans-serif;font-weight:'+(sel?"700":"400")+'">'+(sel?"✓ ":"")+opt.label+'</button>';
-    });
-    h+='</div>';
-    var selLabel=intervalOptions.find(function(o){return o.val===nInterval;})||intervalOptions[2];
-    if(nOn) h+='<div style="font-size:10px;color:#06D6A0">✓ مفعّل — تذكير '+selLabel.label+'</div>';
-    else h+='<div style="font-size:10px;color:#555">موقوف</div>';
-  }
-  h+='</div>';
-
-  h+='<div class="card"><div style="font-size:11px;color:#444;margin-bottom:10px">💾 النسخ الاحتياطي</div>';
-  h+='<div style="font-size:11px;color:#555;margin-bottom:10px;line-height:1.7">بياناتك على هاتفك فقط ✅<br>لا ترسل لأي خادم 🔒</div>';
-  h+='<button onclick="doExport()" style="width:100%;background:#0a1f2a;border:1.5px solid #74B9FF44;border-radius:12px;padding:12px;color:#74B9FF;font-size:13px;font-weight:700;cursor:pointer;font-family:Cairo,sans-serif;margin-bottom:8px">📤 تصدير نسخة احتياطية</button>';
-  h+='<button onclick="openModal(\'import\')" style="width:100%;background:#1a1a0a;border:1.5px solid #FFD16644;border-radius:12px;padding:12px;color:#FFD166;font-size:13px;font-weight:700;cursor:pointer;font-family:Cairo,sans-serif;margin-bottom:8px">📥 استيراد نسخة احتياطية</button>';
-  h+='<button onclick="openModal(\'confirmClear\')" style="width:100%;background:#FF6B6B15;border:1.5px solid #FF6B6B33;border-radius:13px;padding:12px;color:#FF6B6B;font-size:13px;font-weight:700;cursor:pointer;font-family:Cairo,sans-serif">🗑️ مسح جميع البيانات</button>';
-  h+='</div>';
-  return h;
+  APP.months[curM]=md;
+  save();
+  render();
 }
 
-// ══════════════════════════════════════════════════════════
-// NOTIFICATIONS
-// ══════════════════════════════════════════════════════════
-var _notifTimer=null;
-function getUnpaidList(){ var md=gm(tm()); return md.charges.filter(function(c){return !c.paid;}); }
+function nkPress(k){
+  if(k==="⌫"){ numVal=numVal.slice(0,-1); }
+  else if(k==="."&&numVal.includes(".")){ return; }
+  else if(numVal.length>=9){ return; }
+  else{ numVal+=k; }
+  render();
+}
+
+function setIcon(ic){ numIcon=ic; render(); }
+function setCol(c){ numCol=c; render(); }
+
+function nextStep(){
+  if(!numLabel.trim()){ toast("أدخل الاسم أولاً","e"); return; }
+  numStep="amount"; numVal=""; render();
+}
+function prevStep(){ numStep="info"; render(); }
+
+function saveItem(){
+  if(guardLocked()) return;
+  var v=parseFloat(numVal);
+  if(!numLabel.trim()){ toast("أدخل الاسم","e"); return; }
+  if(isNaN(v)||v<=0){ toast("أدخل مبلغاً صحيحاً","e"); return; }
+  var md=gm(curM);
+  var ni={id:Date.now()+"",label:numLabel.trim(),amount:v,icon:numIcon,color:numCol,paid:false};
+  if(modal==="addCharge") md.charges.push(ni);
+  else md.incomes.push(ni);
+  APP.months[curM]=md;
+  save(); modal=null; numStep="info";
+  toast("تمت الإضافة ✓"); render();
+}
+
+function saveSavings(){
+  if(guardLocked()) return;
+  var v=parseFloat(numVal)||0;
+  var md=gm(curM);
+  var sp=md.incomes.reduce(function(s,i){return s+i.amount;},0)-md.charges.reduce(function(s,c){return s+c.amount;},0);
+  if(v>sp&&sp>0) toast("يتجاوز الفائض المتاح!","w");
+  md.savings=v; APP.months[curM]=md;
+  save(); modal=null;
+  toast("تم حفظ الادخار ✓"); render();
+}
+
+function openEdit(id,type){
+  if(guardLocked()) return;
+  var md=gm(curM);
+  var arr=type==="charge"?md.charges:md.incomes;
+  var item=arr.find(function(x){return x.id===id;});
+  if(!item) return;
+  editId=id; editType=type;
+  numVal=String(item.amount); numLabel=item.label; numIcon=item.icon; numCol=item.color;
+  modal="editItem"; render();
+}
+
+function saveEdit(){
+  if(guardLocked()) return;
+  var v=parseFloat(numVal);
+  if(isNaN(v)||v<=0){ toast("أدخل مبلغاً صحيحاً","e"); return; }
+  var md=gm(curM);
+  var arr=editType==="charge"?md.charges:md.incomes;
+  arr=arr.map(function(x){ return x.id===editId ? Object.assign({},x,{label:numLabel||x.label,amount:v,icon:numIcon,color:numCol}) : x; });
+  if(editType==="charge") md.charges=arr; else md.incomes=arr;
+  APP.months[curM]=md; save(); modal=null;
+  toast("تم الحفظ ✓"); render();
+}
+
+function askDel(id,type){
+  if(guardLocked()) return;
+  pendingDelId=id; pendingDelType=type;
+  modal="confirmDel"; render();
+}
+
+function doDelItem(){
+  if(guardLocked()) return;
+  var md=gm(curM);
+  if(pendingDelType==="charge") md.charges=md.charges.filter(function(x){return x.id!==pendingDelId;});
+  else md.incomes=md.incomes.filter(function(x){return x.id!==pendingDelId;});
+  APP.months[curM]=md; save(); modal=null;
+  toast("تم الحذف","e"); render();
+}
+
+function doClear(){
+  APP={currency:"MAD",months:{}}; save(); modal=null;
+  toast("تم مسح جميع البيانات","e"); render();
+}
+
+function doExport(){
+  var d=new Date();
+  var blob=new Blob([JSON.stringify(APP,null,2)],{type:"application/json"});
+  var url=URL.createObjectURL(blob);
+  var a=document.createElement("a");
+  a.href=url; a.download="masarifi_"+d.getFullYear()+"-"+(d.getMonth()+1)+"-"+d.getDate()+".json";
+  a.click(); URL.revokeObjectURL(url);
+  toast("تم التصدير ✓");
+}
+
+var _importedData = null;
+
+function onFileChosen(input){
+  var file = input.files[0];
+  if(!file){ return; }
+  var lbl = document.getElementById("fileNameLabel");
+  if(lbl) lbl.textContent = file.name;
+  var reader = new FileReader();
+  reader.onload = function(e){
+    try{
+      var imp = JSON.parse(e.target.result);
+      if(!imp.months){ toast("ملف غير صالح","e"); _importedData=null; return; }
+      _importedData = imp;
+      if(lbl) lbl.style.color = "#06D6A0";
+    }catch(err){ toast("خطأ في قراءة الملف","e"); _importedData=null; }
+  };
+  reader.readAsText(file);
+}
+
+function doImportFile(){
+  if(!_importedData){ toast("اختر ملف JSON أولاً","e"); return; }
+  APP = _importedData; _importedData = null;
+  save(); modal = null;
+  toast("تم الاستيراد بنجاح ✓"); render();
+}
+
+// ── PASSWORD ACTIONS ──────────────────────────────────────
+function openPwdModal(mode){
+  pwdVal=""; pwdMode=mode; modal="pwd"; render();
+}
+
+function pwdKey(k){
+  if(k==="⌫"){ pwdVal=pwdVal.slice(0,-1); render(); return; }
+  if(k==="✓"){ pwdConfirm(); return; }
+  if(pwdVal.length>=12) return;
+  pwdVal+=k; render();
+}
+
+function pwdConfirm(){
+  if(pwdMode==="unlock") doPwdUnlock();
+  else if(pwdMode==="set") doPwdSet();
+  else if(pwdMode==="change-old") doPwdChangeVerify();
+  else if(pwdMode==="change-new") doPwdChangeNew();
+  else if(pwdMode==="remove") doPwdRemove();
+}
+
+function doPwdUnlock(){
+  if(!pwdVal){ toast("أدخل كلمة المرور","e"); return; }
+  if(pwdVal!==getPwd()){ toast("كلمة المرور خاطئة ✗","e"); pwdVal=""; render(); return; }
+  setUnlocked(); modal=null; pwdVal="";
+  toast("تم فتح القفل ✓ جلسة مؤقتة"); render();
+}
+
+function doPwdSet(){
+  if(!pwdVal||pwdVal.length<1){ toast("أدخل كلمة مرور","e"); return; }
+  setPwdStore(pwdVal); modal=null; pwdVal="";
+  toast("تم تعيين كلمة المرور ✓"); render();
+}
+
+function doPwdChangeVerify(){
+  if(pwdVal!==getPwd()){ toast("كلمة المرور الحالية خاطئة ✗","e"); pwdVal=""; render(); return; }
+  pwdOldOk=true; pwdVal=""; pwdMode="change-new"; render();
+}
+
+function doPwdChangeNew(){
+  if(!pwdVal){ toast("أدخل كلمة مرور جديدة","e"); return; }
+  setPwdStore(pwdVal); modal=null; pwdVal=""; pwdOldOk=false;
+  toast("تم تغيير كلمة المرور ✓"); render();
+}
+
+function doPwdRemove(){
+  if(pwdVal!==getPwd()){ toast("كلمة المرور خاطئة ✗","e"); pwdVal=""; render(); return; }
+  removePwd(); reLock(); modal=null; pwdVal="";
+  toast("تمت إزالة كلمة المرور","w"); render();
+}
+
+function reLockNow(){
+  reLock(); toast("تم إعادة القفل 🔒"); render();
+}
+
+// ── NOTIFICATIONS ─────────────────────────────────────────
+var _notifTimer = null;
+
+function getUnpaidList(){
+  var md = gm(tm());
+  return md.charges.filter(function(c){ return !c.paid; });
+}
+
 function fireUnpaidNotif(){
-  var unpaid=getUnpaidList(); if(!unpaid.length) return;
-  var cur=APP.currency;
-  var total=unpaid.reduce(function(s,c){return s+c.amount;},0);
-  var body=unpaid.slice(0,5).map(function(c){ return c.icon+" "+c.label+" — "+c.amount.toLocaleString()+" "+cur; }).join("\n");
-  if(unpaid.length>5) body+="\n…و"+(unpaid.length-5)+" آخرين";
-  body+="\n\nالمجموع: "+total.toLocaleString()+" "+cur;
+  var unpaid = getUnpaidList();
+  if(!unpaid.length) return;
+  var cur = APP.currency;
+  var total = unpaid.reduce(function(s,c){ return s+c.amount; }, 0);
+  var body = unpaid.slice(0,5).map(function(c){
+    return c.icon+" "+c.label+" — "+c.amount.toLocaleString()+" "+cur;
+  }).join("\n");
+  if(unpaid.length>5) body += "\n…و"+(unpaid.length-5)+" آخرين";
+  body += "\n\nالمجموع: "+total.toLocaleString()+" "+cur;
   try{
-    new Notification("🔔 مصاريفي — "+unpaid.length+" مصروف غير مدفوع",{
-      body:body,
-      icon:"data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 64 64'><rect width='64' height='64' rx='16' fill='%230F1117'/><text y='44' x='8' font-size='40'>💸</text></svg>",
-      tag:"masarifi-unpaid",renotify:true
+    new Notification("🔔 مصاريفي — "+unpaid.length+" مصروف غير مدفوع", {
+      body: body,
+      icon: "data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 64 64'><rect width='64' height='64' rx='16' fill='%230F1117'/><text y='44' x='8' font-size='40'>💸</text></svg>",
+      tag: "masarifi-unpaid",
+      renotify: true
     });
   }catch(e){}
 }
+
 function startNotifTimer(){
   stopNotifTimer();
   if(localStorage.getItem("masarifi_notif")!=="1") return;
   if(Notification.permission!=="granted") return;
-  var minutes=parseInt(localStorage.getItem("masarifi_notif_interval")||"60");
+  var minutes = parseInt(localStorage.getItem("masarifi_notif_interval")||"60");
+  var ms = minutes * 60 * 1000;
+  // Fire immediately on start, then every chosen interval
   fireUnpaidNotif();
-  _notifTimer=setInterval(function(){
-    if(localStorage.getItem("masarifi_notif")==="1") fireUnpaidNotif();
-    else stopNotifTimer();
-  },minutes*60*1000);
+  _notifTimer = setInterval(function(){
+    if(localStorage.getItem("masarifi_notif")==="1"){
+      fireUnpaidNotif();
+    } else {
+      stopNotifTimer();
+    }
+  }, ms);
 }
-function stopNotifTimer(){ if(_notifTimer){ clearInterval(_notifTimer); _notifTimer=null; } }
+
+function stopNotifTimer(){
+  if(_notifTimer){ clearInterval(_notifTimer); _notifTimer=null; }
+}
+
 function setNotifInterval(minutes){
-  localStorage.setItem("masarifi_notif_interval",String(minutes));
-  if(localStorage.getItem("masarifi_notif")==="1"&&Notification.permission==="granted"){ startNotifTimer(); toast("فترة التذكير: كل "+minutes+" دقيقة"); }
+  localStorage.setItem("masarifi_notif_interval", String(minutes));
+  // Restart timer with new interval if active
+  if(localStorage.getItem("masarifi_notif")==="1" && Notification.permission==="granted"){
+    startNotifTimer();
+    toast("فترة التذكير: كل "+minutes+" دقيقة");
+  }
   render();
 }
+
 function enableNotifs(){
   Notification.requestPermission().then(function(perm){
-    if(perm==="granted"){ localStorage.setItem("masarifi_notif","1"); startNotifTimer(); toast("تم تفعيل التذكيرات 🔔"); }
-    else toast("تم رفض الإشعارات","e");
+    if(perm==="granted"){
+      localStorage.setItem("masarifi_notif","1");
+      startNotifTimer();
+      toast("تم تفعيل التذكيرات 🔔");
+    } else {
+      toast("تم رفض الإشعارات","e");
+    }
     render();
   });
 }
+
 function toggleNotifs(){
-  var cur=localStorage.getItem("masarifi_notif")==="1";
-  if(cur){ localStorage.setItem("masarifi_notif","0"); stopNotifTimer(); toast("تم إيقاف التذكيرات","w"); }
-  else { localStorage.setItem("masarifi_notif","1"); startNotifTimer(); toast("تم تفعيل التذكيرات 🔔"); }
+  var cur = localStorage.getItem("masarifi_notif")==="1";
+  if(cur){
+    localStorage.setItem("masarifi_notif","0");
+    stopNotifTimer();
+    toast("تم إيقاف التذكيرات","w");
+  } else {
+    localStorage.setItem("masarifi_notif","1");
+    startNotifTimer();
+    toast("تم تفعيل التذكيرات 🔔");
+  }
   render();
 }
 
-// ══════════════════════════════════════════════════════════
-// BIND
-// ══════════════════════════════════════════════════════════
-function bind(){}
-
-// ══════════════════════════════════════════════════════════
-// START
-// ══════════════════════════════════════════════════════════
+// ── START ─────────────────────────────────────────────────
+// Ensure curM is within visible months
 (function(){
   var vis=visibleMonths();
   if(vis.indexOf(curM)===-1) curM=tm();
 })();
 render();
-setTimeout(function(){ autoBackup(); },3000);
-setTimeout(function(){ startNotifTimer(); },1000);
+setTimeout(function(){ autoBackup(); }, 3000);
+// Start hourly reminders if previously enabled
+setTimeout(function(){ startNotifTimer(); }, 1000);
 </script>
 </body>
 </html>
