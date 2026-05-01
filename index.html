@@ -25,9 +25,8 @@ input,button{font-family:'Cairo',sans-serif}
 #toast.w{background:#FFD166;color:#000}
 .card{background:#1E2030;border-radius:16px;padding:14px;margin-bottom:10px}
 .chip{background:#1E2030;border:1.5px solid transparent;border-radius:99px;padding:5px 13px;font-size:11px;color:#666;cursor:pointer;white-space:nowrap;font-family:Cairo,sans-serif}
-.tab{flex:1;background:none;border:none;border-bottom:2px solid transparent;padding:9px 0;font-size:11px;color:#555;cursor:pointer;font-family:Cairo,sans-serif}
+.tab{flex:1;background:none;border:none;border-bottom:2px solid transparent;padding:9px 0;font-size:12px;color:#555;cursor:pointer;font-family:Cairo,sans-serif}
 .tab.on{color:#B8B5FF;border-bottom-color:#B8B5FF;font-weight:700}
-.tab.sulaf-on{color:#FFD166!important;border-bottom-color:#FFD166!important;font-weight:700}
 .btn-main{width:100%;background:linear-gradient(135deg,#B8B5FF,#8B5CF6);border:none;border-radius:13px;padding:13px;font-size:14px;font-weight:800;color:#fff;cursor:pointer;font-family:Cairo,sans-serif}
 .bar-t{background:#2A2D3E;border-radius:99px;height:8px;overflow:hidden;margin:5px 0}
 .bar-f{height:100%;border-radius:99px;transition:width .5s}
@@ -360,8 +359,6 @@ function page(){
   h+='<div style="display:flex;border-bottom:1px solid #1E2030;background:#0F1117;position:sticky;top:0;z-index:10">';
   h+='<button class="tab'+(curTab==="charges"?" on":"")+'" onclick="setTab(\'charges\')">📤 المصاريف ('+md.charges.length+')</button>';
   h+='<button class="tab'+(curTab==="income"?" on":"")+'" onclick="setTab(\'income\')">💰 الدخل ('+md.incomes.length+')</button>';
-  var totalSulaf=APP.sulaf?APP.sulaf.persons?APP.sulaf.persons.length:0:0;
-  h+='<button class="tab'+(curTab==="sulaf"?" sulaf-on":"")+'" onclick="setTab(\'sulaf\')">🤝 السلف'+(totalSulaf>0?' ('+totalSulaf+')':'')+'</button>';
   h+='<button class="tab'+(curTab==="settings"?" on":"")+'" onclick="setTab(\'settings\')">⚙️ إعدادات</button>';
   h+='</div>';
 
@@ -386,11 +383,6 @@ function page(){
     md.incomes.forEach(function(i){ h+=itemRow(i,cur,false,effectiveLockI); });
     h+='<div style="background:#0a1f0a;border-radius:13px;padding:10px 14px;border:1px solid #06D6A022;margin-top:6px">';
     h+='<div class="row"><span style="color:#888;font-size:13px">إجمالي الدخل</span><span style="font-weight:800;color:#06D6A0;font-size:14px">'+tInc.toLocaleString()+' '+cur+'</span></div></div>';
-  }
-
-  // ── SULAF TAB (سلف الأصدقاء والعائلة)
-  if(curTab==="sulaf"){
-    h+=buildSulafTab();
   }
 
   // ── SETTINGS TAB
@@ -421,7 +413,7 @@ function page(){
       h+='<div style="font-size:10px;color:#444;margin-top:6px">بدون كلمة مرور: الشهر المقفل يظل مغلقاً تماماً</div>';
     } else {
       h+='<div style="display:flex;gap:8px;margin-bottom:7px">';
-      h+='<button onclick="openPwdModal(\'change-old\')" style="flex:1;background:#1E2030;border:1.5px solid #B8B5FF33;border-radius:11px;padding:9px;color:#B8B5FF;font-size:11px;cursor:pointer;font-family:Cairo,sans-serif">✏️ تغيير</button>';
+      h+='<button onclick="openPwdModal(\'change\')" style="flex:1;background:#1E2030;border:1.5px solid #B8B5FF33;border-radius:11px;padding:9px;color:#B8B5FF;font-size:11px;cursor:pointer;font-family:Cairo,sans-serif">✏️ تغيير</button>';
       h+='<button onclick="openPwdModal(\'remove\')" style="flex:1;background:#1E2030;border:1.5px solid #FF6B6B33;border-radius:11px;padding:9px;color:#FF6B6B;font-size:11px;cursor:pointer;font-family:Cairo,sans-serif">🗑️ إزالة</button>';
       if(isUnlocked()){ h+='<button onclick="reLockNow()" style="flex:1;background:#FF6B6B15;border:1.5px solid #FF6B6B44;border-radius:11px;padding:9px;color:#FF8B94;font-size:11px;cursor:pointer;font-family:Cairo,sans-serif">🔒 إعادة قفل</button>'; }
       h+='</div>';
@@ -621,110 +613,7 @@ function buildModal(){
     h+='</div>';
   }
 
-  else if(modal==="addPerson"){
-    h+='<span style="font-size:16px;font-weight:800">👤 إضافة شخص</span>';
-    h+='<button onclick="closeModal()" style="background:#1E2030;border:none;border-radius:99px;width:30px;height:30px;color:#888;cursor:pointer;font-size:16px">✕</button></div>';
-    h+='<label class="lbl">الاسم</label><input id="personName" class="inp" type="text" placeholder="مثل: أحمد، سارة، أبي..." value="'+(sulafNewName||'')+'" oninput="sulafNewName=this.value"/>';
-    h+='<label class="lbl">الصورة الرمزية</label>';
-    h+='<div style="display:flex;flex-wrap:wrap;gap:6px;margin-bottom:14px">';
-    var avatars=["👤","👨","👩","👴","👵","🧑","👦","👧","🧔","👱","🧕","👩‍💼","👨‍💼","❤️","⭐","🌟"];
-    avatars.forEach(function(av){
-      h+='<button onclick="sulafNewAvatar=\''+av+'\';render()" style="background:'+(sulafNewAvatar===av?"#FFD16622":"#1E2030")+';border:2px solid '+(sulafNewAvatar===av?"#FFD166":"transparent")+';border-radius:9px;padding:7px 9px;font-size:20px;cursor:pointer">'+av+'</button>';
-    });
-    h+='</div>';
-    h+='<label class="lbl">اللون</label><div style="display:flex;gap:7px;flex-wrap:wrap;margin-bottom:14px">';
-    ["#FFD166","#FF8B94","#74B9FF","#A8E6CF","#B8B5FF","#4ECDC4","#fd79a8","#06D6A0"].forEach(function(c){
-      h+='<button onclick="sulafNewColor=\''+c+'\';render()" style="width:30px;height:30px;border-radius:99px;background:'+c+';border:'+(sulafNewColor===c?"3px solid #fff":"3px solid transparent")+';cursor:pointer"></button>';
-    });
-    h+='</div>';
-    h+='<button onclick="savePerson()" class="btn-main">إضافة ✓</button>';
-  }
-
-  else if(modal==="addSulafTx"){
-    var sp=sulafActivePerson;
-    if(sp){
-      h+='<span style="font-size:16px;font-weight:800">'+(sulafTxType==="lent"?"💸 أنت سلّفت":"💰 أنت اقترضت")+'</span>';
-      h+='<button onclick="closeModal()" style="background:#1E2030;border:none;border-radius:99px;width:30px;height:30px;color:#888;cursor:pointer;font-size:16px">✕</button></div>';
-      h+='<div style="display:flex;gap:7px;margin-bottom:14px">';
-      h+='<button onclick="sulafTxType=\'lent\';render()" style="flex:1;background:'+(sulafTxType==="lent"?"#FF6B6B22":"#1E2030")+';border:1.5px solid '+(sulafTxType==="lent"?"#FF6B6B":"#2A2D3E")+';border-radius:11px;padding:10px;color:'+(sulafTxType==="lent"?"#FF8B94":"#555")+';font-size:12px;font-weight:'+(sulafTxType==="lent"?"700":"400")+';cursor:pointer;font-family:Cairo,sans-serif">💸 سلّفت لـ'+sp.name+'</button>';
-      h+='<button onclick="sulafTxType=\'borrowed\';render()" style="flex:1;background:'+(sulafTxType==="borrowed"?"#06D6A022":"#1E2030")+';border:1.5px solid '+(sulafTxType==="borrowed"?"#06D6A0":"#2A2D3E")+';border-radius:11px;padding:10px;color:'+(sulafTxType==="borrowed"?"#06D6A0":"#555")+';font-size:12px;font-weight:'+(sulafTxType==="borrowed"?"700":"400")+';cursor:pointer;font-family:Cairo,sans-serif">💰 اقترضت من '+sp.name+'</button>';
-      h+='</div>';
-      h+='<div style="font-size:36px;font-weight:900;color:'+(numVal?"#FFD166":"#333")+';text-align:center;margin-bottom:10px">'+(numVal||"0")+' <span style="font-size:13px;color:#555">'+APP.currency+'</span></div>';
-      h+=numpad();
-      h+='<label class="lbl">التاريخ</label><input id="sulafDate" class="inp" type="date" value="'+(sulafTxDate||td())+'" oninput="sulafTxDate=this.value" style="margin-bottom:10px"/>';
-      h+='<label class="lbl">ملاحظة (اختياري)</label><input id="sulafNote" class="inp" type="text" placeholder="مثل: سلفة الإيجار، عشاء..." value="'+(sulafTxNote||'')+'" oninput="sulafTxNote=this.value"/>';
-      h+='<button onclick="saveSulafTx()" class="btn-main">تسجيل ✓</button>';
-    }
-  }
-
-  else if(modal==="sulafPersonDetail"){
-    var sp2=sulafActivePerson;
-    if(sp2){
-      var bal=calcBalance(sp2);
-      var balColor=bal>0?"#FF8B94":bal<0?"#06D6A0":"#888";
-      var balLabel=bal>0?"مدين لك":"مديون له";
-      h+='<div style="display:flex;align-items:center;gap:10px;flex:1"><span style="font-size:24px">'+sp2.avatar+'</span><span style="font-size:16px;font-weight:800">'+sp2.name+'</span></div>';
-      h+='<button onclick="closeModal()" style="background:#1E2030;border:none;border-radius:99px;width:30px;height:30px;color:#888;cursor:pointer;font-size:16px">✕</button></div>';
-      // Balance card
-      h+='<div style="background:'+balColor+'15;border:1.5px solid '+balColor+'33;border-radius:13px;padding:12px 14px;margin-bottom:14px;text-align:center">';
-      if(bal===0){
-        h+='<div style="font-size:13px;color:#888;margin-bottom:4px">✅ لا توجد ديون متبقية</div>';
-        h+='<div style="font-size:26px;font-weight:900;color:#888">0 '+APP.currency+'</div>';
-      } else {
-        h+='<div style="font-size:11px;color:'+balColor+';margin-bottom:4px">'+balLabel+'</div>';
-        h+='<div style="font-size:28px;font-weight:900;color:'+balColor+'">'+Math.abs(bal).toLocaleString()+' '+APP.currency+'</div>';
-        if(bal>0) h+='<div style="font-size:10px;color:#FF8B9488;margin-top:4px">'+sp2.name+' عليه '+Math.abs(bal).toLocaleString()+' '+APP.currency+'</div>';
-        else h+='<div style="font-size:10px;color:#06D6A088;margin-top:4px">أنت مديون لـ'+sp2.name+' بـ'+Math.abs(bal).toLocaleString()+' '+APP.currency+'</div>';
-      }
-      h+='</div>';
-      // Action buttons
-      h+='<div style="display:flex;gap:8px;margin-bottom:14px">';
-      h+='<button onclick="openSulafTx(\'lent\')" style="flex:1;background:#FF6B6B15;border:1.5px solid #FF6B6B44;border-radius:11px;padding:10px;color:#FF8B94;font-size:12px;font-weight:700;cursor:pointer;font-family:Cairo,sans-serif">💸 سلّفت له</button>';
-      h+='<button onclick="openSulafTx(\'borrowed\')" style="flex:1;background:#06D6A015;border:1.5px solid #06D6A044;border-radius:11px;padding:10px;color:#06D6A0;font-size:12px;font-weight:700;cursor:pointer;font-family:Cairo,sans-serif">💰 اقترضت منه</button>';
-      if(bal!==0) h+='<button onclick="openSulafTx(\'settle\')" style="flex:1;background:#74B9FF15;border:1.5px solid #74B9FF44;border-radius:11px;padding:10px;color:#74B9FF;font-size:11px;font-weight:700;cursor:pointer;font-family:Cairo,sans-serif">✅ تسوية</button>';
-      h+='</div>';
-      // Transactions list
-      var txs=(sp2.transactions||[]).slice().reverse();
-      if(txs.length===0){
-        h+='<div style="text-align:center;color:#555;font-size:12px;padding:20px">لا توجد معاملات بعد</div>';
-      } else {
-        h+='<div style="font-size:11px;color:#444;margin-bottom:8px">سجل المعاملات ('+txs.length+')</div>';
-        txs.forEach(function(tx,i){
-          var isLent=tx.type==="lent";
-          var isSettle=tx.type==="settle";
-          var txColor=isLent?"#FF8B94":isSettle?"#74B9FF":"#06D6A0";
-          var txIcon=isLent?"💸":isSettle?"✅":"💰";
-          var txLabel=isLent?"سلّفت":"اقترضت";
-          if(isSettle) txLabel="تسوية";
-          h+='<div style="background:#1E2030;border-radius:11px;padding:10px 12px;margin-bottom:7px;border-right:3px solid '+txColor+'">';
-          h+='<div style="display:flex;justify-content:space-between;align-items:center">';
-          h+='<div style="display:flex;align-items:center;gap:7px"><span>'+txIcon+'</span><div>';
-          h+='<div style="font-size:12px;color:#ccc">'+txLabel+'</div>';
-          if(tx.note) h+='<div style="font-size:10px;color:#666">'+tx.note+'</div>';
-          h+='<div style="font-size:10px;color:#444">'+tx.date+'</div>';
-          h+='</div></div>';
-          h+='<div style="display:flex;align-items:center;gap:6px">';
-          h+='<span style="font-size:13px;font-weight:800;color:'+txColor+'">'+(isLent?"-":"+")+(isSettle?"±":"")+tx.amount.toLocaleString()+' '+APP.currency+'</span>';
-          h+='<button onclick="deleteSulafTx(\''+sp2.id+'\',\''+tx.id+'\')" style="background:#2A2D3E;border:none;border-radius:7px;width:24px;height:24px;font-size:11px;cursor:pointer;color:#555">🗑</button>';
-          h+='</div></div></div>';
-        });
-      }
-      // Delete person button
-      h+='<div style="margin-top:14px">';
-      h+='<button onclick="askDeletePerson(\''+sp2.id+'\')" style="width:100%;background:#FF6B6B10;border:1.5px solid #FF6B6B22;border-radius:12px;padding:10px;color:#FF6B6B;font-size:12px;cursor:pointer;font-family:Cairo,sans-serif">🗑️ حذف هذا الشخص</button>';
-      h+='</div>';
-    }
-  }
-
-  else if(modal==="confirmDeletePerson"){
-    h+='<span style="font-size:16px;font-weight:800">⚠️ حذف الشخص</span>';
-    h+='<button onclick="closeModal()" style="background:#1E2030;border:none;border-radius:99px;width:30px;height:30px;color:#888;cursor:pointer;font-size:16px">✕</button></div>';
-    h+='<div style="font-size:14px;color:#ccc;text-align:center;margin:20px 0;line-height:1.8">هل تريد حذف هذا الشخص؟<br><span style="color:#FF6B6B;font-weight:700">ستُحذف جميع معاملاته نهائياً</span></div>';
-    h+='<div style="display:flex;gap:10px">';
-    h+='<button onclick="doDeletePerson()" style="flex:1;background:#FF6B6B;border:none;border-radius:13px;padding:14px;color:#fff;font-size:15px;font-weight:800;cursor:pointer;font-family:Cairo,sans-serif">نعم، احذف</button>';
-    h+='<button onclick="closeModal()" style="flex:1;background:#1E2030;border:none;border-radius:13px;padding:14px;color:#888;font-size:15px;cursor:pointer;font-family:Cairo,sans-serif">إلغاء</button>';
-    h+='</div>';
-  }
+  else if(modal==="confirmDel"){
     h+='<span style="font-size:16px;font-weight:800">🗑️ حذف العنصر</span>';
     h+='<button onclick="closeModal()" style="background:#1E2030;border:none;border-radius:99px;width:30px;height:30px;color:#888;cursor:pointer;font-size:16px">✕</button></div>';
     h+='<div style="font-size:14px;color:#ccc;text-align:center;margin:20px 0">هل تريد حذف هذا العنصر؟</div>';
@@ -1065,164 +954,6 @@ function toggleNotifs(){
     toast("تم تفعيل التذكيرات 🔔");
   }
   render();
-}
-
-// ── SULAF STATE ───────────────────────────────────────────
-var sulafActivePerson = null;
-var sulafTxType = "lent"; // "lent" | "borrowed" | "settle"
-var sulafTxDate = "";
-var sulafTxNote = "";
-var sulafNewName = "";
-var sulafNewAvatar = "👤";
-var sulafNewColor = "#FFD166";
-var sulafPendingDelPersonId = null;
-
-function initSulaf(){
-  if(!APP.sulaf) APP.sulaf={persons:[]};
-  if(!APP.sulaf.persons) APP.sulaf.persons=[];
-}
-
-function calcBalance(person){
-  // positive = person owes you; negative = you owe person
-  var bal=0;
-  (person.transactions||[]).forEach(function(tx){
-    if(tx.type==="lent") bal+=tx.amount;        // you gave → person owes you
-    else if(tx.type==="borrowed") bal-=tx.amount; // you took → you owe
-    else if(tx.type==="settle") bal=0;            // full settle
-  });
-  return bal;
-}
-
-function buildSulafTab(){
-  initSulaf();
-  var persons=APP.sulaf.persons;
-  var h='';
-  // Summary bar
-  var totalOwedToMe=0, totalIOwe=0;
-  persons.forEach(function(p){
-    var b=calcBalance(p);
-    if(b>0) totalOwedToMe+=b;
-    else if(b<0) totalIOwe+=Math.abs(b);
-  });
-  if(persons.length>0){
-    h+='<div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:12px">';
-    h+='<div style="background:#FF6B6B15;border:1.5px solid #FF6B6B33;border-radius:13px;padding:12px">';
-    h+='<div style="font-size:10px;color:#FF8B94;margin-bottom:3px">💸 مدينون لك</div>';
-    h+='<div style="font-size:18px;font-weight:900;color:#FF8B94">'+totalOwedToMe.toLocaleString()+'</div>';
-    h+='<div style="font-size:9px;color:#555">'+APP.currency+'</div></div>';
-    h+='<div style="background:#06D6A015;border:1.5px solid #06D6A033;border-radius:13px;padding:12px">';
-    h+='<div style="font-size:10px;color:#06D6A0;margin-bottom:3px">💰 أنت مدين</div>';
-    h+='<div style="font-size:18px;font-weight:900;color:#06D6A0">'+totalIOwe.toLocaleString()+'</div>';
-    h+='<div style="font-size:9px;color:#555">'+APP.currency+'</div></div>';
-    h+='</div>';
-  }
-  // Add person button
-  h+='<button onclick="openAddPerson()" style="width:100%;background:#1E2030;border:1.5px dashed #FFD16655;border-radius:13px;padding:11px;color:#FFD166;font-size:13px;cursor:pointer;font-family:Cairo,sans-serif;margin-bottom:10px">+ إضافة شخص</button>';
-  // Persons list
-  if(persons.length===0){
-    h+='<div style="text-align:center;padding:40px 20px">';
-    h+='<div style="font-size:48px;margin-bottom:12px">🤝</div>';
-    h+='<div style="font-size:14px;color:#555;line-height:1.8">لا توجد أشخاص بعد<br><span style="font-size:12px;color:#333">أضف أصدقاء أو عائلة لتتبع السلف بينكم</span></div>';
-    h+='</div>';
-  } else {
-    persons.forEach(function(p){
-      var bal=calcBalance(p);
-      var balColor=bal>0?"#FF8B94":bal<0?"#06D6A0":"#555";
-      var balLabel=bal>0?"مدين لك "+bal.toLocaleString():bal<0?"أنت مدين له "+Math.abs(bal).toLocaleString():"لا ديون";
-      var txCount=(p.transactions||[]).length;
-      h+='<div onclick="openPersonDetail(\''+p.id+'\')" style="background:#1E2030;border-radius:13px;padding:12px 14px;margin-bottom:8px;cursor:pointer;border-right:3px solid '+(bal===0?"#2A2D3E":balColor)+';display:flex;align-items:center;gap:10px">';
-      h+='<div style="width:40px;height:40px;border-radius:99px;background:'+p.color+'22;border:2px solid '+p.color+'44;display:flex;align-items:center;justify-content:center;font-size:20px;flex-shrink:0">'+p.avatar+'</div>';
-      h+='<div style="flex:1">';
-      h+='<div style="font-size:14px;font-weight:700;color:#ddd">'+p.name+'</div>';
-      h+='<div style="font-size:11px;color:'+balColor+';margin-top:2px">'+balLabel+' '+APP.currency+'</div>';
-      h+='</div>';
-      h+='<div style="text-align:left">';
-      if(bal!==0) h+='<div style="font-size:16px;font-weight:900;color:'+balColor+'">'+(bal>0?"+":"")+bal.toLocaleString()+'</div>';
-      h+='<div style="font-size:9px;color:#444;margin-top:2px">'+txCount+' معاملة</div>';
-      h+='</div></div>';
-    });
-  }
-  return h;
-}
-
-function openAddPerson(){
-  sulafNewName=""; sulafNewAvatar="👤"; sulafNewColor="#FFD166";
-  modal="addPerson"; render();
-}
-
-function savePerson(){
-  initSulaf();
-  var name=sulafNewName.trim();
-  if(!name){ toast("أدخل الاسم","e"); return; }
-  APP.sulaf.persons.push({
-    id:Date.now()+"",
-    name:name,
-    avatar:sulafNewAvatar,
-    color:sulafNewColor,
-    transactions:[]
-  });
-  save(); modal=null;
-  toast("تمت الإضافة ✓"); render();
-}
-
-function openPersonDetail(pid){
-  initSulaf();
-  sulafActivePerson=APP.sulaf.persons.find(function(p){return p.id===pid;})||null;
-  if(!sulafActivePerson) return;
-  modal="sulafPersonDetail"; render();
-}
-
-function openSulafTx(type){
-  sulafTxType=type; numVal=""; sulafTxDate=td(); sulafTxNote="";
-  modal="addSulafTx"; render();
-}
-
-function saveSulafTx(){
-  if(!sulafActivePerson){ toast("خطأ","e"); return; }
-  var sp=APP.sulaf.persons.find(function(p){return p.id===sulafActivePerson.id;});
-  if(!sp) return;
-  if(sulafTxType==="settle"){
-    // settle resets to 0 by adding a settle record
-    var bal=calcBalance(sp);
-    if(bal===0){ toast("لا يوجد دين للتسوية","w"); return; }
-    var tx2={id:Date.now()+"",type:"settle",amount:Math.abs(bal),date:sulafTxDate||td(),note:sulafTxNote||"تسوية كاملة"};
-    sp.transactions.push(tx2);
-    save();
-    sulafActivePerson=sp;
-    modal="sulafPersonDetail";
-    toast("تم التسوية ✅"); render(); return;
-  }
-  var v=parseFloat(numVal);
-  if(isNaN(v)||v<=0){ toast("أدخل مبلغاً صحيحاً","e"); return; }
-  var tx={id:Date.now()+"",type:sulafTxType,amount:v,date:sulafTxDate||td(),note:sulafTxNote||""};
-  sp.transactions.push(tx);
-  save();
-  sulafActivePerson=sp;
-  modal="sulafPersonDetail";
-  toast("تم التسجيل ✓"); render();
-}
-
-function deleteSulafTx(pid,txid){
-  initSulaf();
-  var sp=APP.sulaf.persons.find(function(p){return p.id===pid;});
-  if(!sp) return;
-  sp.transactions=sp.transactions.filter(function(t){return t.id!==txid;});
-  save();
-  sulafActivePerson=sp;
-  toast("تم الحذف","e"); render();
-}
-
-function askDeletePerson(pid){
-  sulafPendingDelPersonId=pid;
-  modal="confirmDeletePerson"; render();
-}
-
-function doDeletePerson(){
-  initSulaf();
-  APP.sulaf.persons=APP.sulaf.persons.filter(function(p){return p.id!==sulafPendingDelPersonId;});
-  sulafPendingDelPersonId=null; sulafActivePerson=null;
-  save(); modal=null;
-  toast("تم حذف الشخص","e"); render();
 }
 
 // ── START ─────────────────────────────────────────────────
