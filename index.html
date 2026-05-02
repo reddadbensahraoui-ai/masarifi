@@ -14,7 +14,7 @@
 *{box-sizing:border-box;margin:0;padding:0;-webkit-tap-highlight-color:transparent}
 html,body{height:100%;background:#0F1117;overflow:hidden}
 body{font-family:'Cairo',sans-serif;color:#f0f0f0;direction:rtl}
-input,button{font-family:'Cairo',sans-serif}
+input,button,select{font-family:'Cairo',sans-serif}
 ::-webkit-scrollbar{width:0}
 #app{max-width:430px;margin:0 auto;height:100vh;display:flex;flex-direction:column;background:#0F1117}
 #main{flex:1;overflow-y:auto;-webkit-overflow-scrolling:touch;padding-bottom:20px}
@@ -40,226 +40,470 @@ input,button{font-family:'Cairo',sans-serif}
 .inp{width:100%;background:#1E2030;border:1.5px solid #2A2D3E;border-radius:11px;padding:11px 13px;font-size:14px;color:#fff;outline:none;font-family:Cairo,sans-serif;margin-bottom:10px}
 .lbl{font-size:11px;color:#666;margin-bottom:6px;display:block}
 .lock-banner{background:linear-gradient(135deg,#2a1010,#1a0808);border:1.5px solid #FF6B6B44;border-radius:12px;padding:10px 14px;margin-bottom:10px;display:flex;align-items:center;gap:9px}
+#bottom-nav{display:flex;background:#151720;border-top:1px solid #1E2030;padding:0;flex-shrink:0}
+.bnav{flex:1;display:flex;flex-direction:column;align-items:center;justify-content:center;padding:10px 4px 12px;font-size:9px;color:#444;cursor:pointer;border:none;background:none;font-family:Cairo,sans-serif;gap:3px;transition:color .2s;border-top:2px solid transparent}
+.bnav.on{color:#B8B5FF;border-top-color:#B8B5FF}
+.bnav .icon{font-size:20px}
+.person-card{background:#1E2030;border-radius:16px;padding:14px;margin-bottom:10px;cursor:pointer;position:relative;overflow:hidden;transition:background .2s}
+.person-card:active{background:#252840}
+.person-card .accent-bar{position:absolute;right:0;top:0;bottom:0;width:4px;border-radius:0 16px 16px 0}
+.tx-row{display:flex;align-items:flex-start;gap:10px;padding:10px 0;border-bottom:1px solid #2A2D3E}
+.tx-row:last-child{border-bottom:none}
+.tx-badge{min-width:36px;height:36px;border-radius:10px;display:flex;align-items:center;justify-content:center;font-size:16px;flex-shrink:0}
+.pill{display:inline-block;padding:2px 9px;border-radius:99px;font-size:10px;font-weight:700}
 </style>
 </head>
 <body>
-<div id="app"><div id="main"></div></div>
+<div id="app">
+  <div id="main"></div>
+  <div id="bottom-nav">
+    <button class="bnav on" id="bnav-budget" onclick="setPage('budget')"><span class="icon">💰</span>الميزانية</button>
+    <button class="bnav" id="bnav-sulaf" onclick="setPage('sulaf')"><span class="icon">🤝</span>السلف</button>
+  </div>
+</div>
 <div id="toast"></div>
 <script>
 // ── DATA ──────────────────────────────────────────────────
-var SK = "masarifi_v1";
-var APP = (function(){ try{ var r=localStorage.getItem(SK); if(r) return JSON.parse(r); }catch(e){} return {currency:"MAD",months:{}}; })();
+var SK="masarifi_v1";
+var APP=(function(){try{var r=localStorage.getItem(SK);if(r){var p=JSON.parse(r);if(!p.persons)p.persons=[];return p;}}catch(e){}return{currency:"MAD",months:{},persons:[]};})();
 
-function save(){ try{ localStorage.setItem(SK,JSON.stringify(APP)); }catch(e){ toast("تعذر الحفظ!","e"); } }
+function save(){try{localStorage.setItem(SK,JSON.stringify(APP));}catch(e){toast("تعذر الحفظ!","e");}}
 
-var DC = [
-  {id:"darts",      label:"Darts",                  amount:5000, icon:"🎯", color:"#FF8B94",  skipMonths:[]},
-  {id:"charge_m",   label:"Charge Du Mois",          amount:3500, icon:"🛒", color:"#FFE66D",  skipMonths:[]},
-  {id:"reddad",     label:"Reddad Charge",           amount:3500, icon:"👤", color:"#B8B5FF",  skipMonths:[]},
-  {id:"home_crd",   label:"HOME CREDIT",             amount:2632, icon:"🏠", color:"#FF6B6B",  skipMonths:[]},
-  {id:"parent",     label:"Parents Give",            amount:1000, icon:"❤️", color:"#FF8B94",  skipMonths:[]},
-  {id:"ecole",      label:"Ecole Med-Yasser",        amount:950,  icon:"🎓", color:"#A8E6CF",  skipMonths:["07","08"]},
-  {id:"internet",   label:"INTERNET",                amount:250,  icon:"📶", color:"#4ECDC4",  skipMonths:[]},
-  {id:"rak",        label:"RAK (EAU & ÉLECTRICITÉ)", amount:230,  icon:"💡", color:"#06D6A0",  skipMonths:[]},
-  {id:"assurance",  label:"Assurance Voiture",       amount:4500, icon:"🚗", color:"#FF6B6B",  skipMonths:[], onlyMonths:["03"]},
-  {id:"vignette",   label:"Vignette DUSTER",         amount:700,  icon:"📋", color:"#FFD166",  skipMonths:[], onlyMonths:["01"]}
+var DC=[
+  {id:"darts",label:"Darts",amount:5000,icon:"🎯",color:"#FF8B94",skipMonths:[]},
+  {id:"charge_m",label:"Charge Du Mois",amount:3500,icon:"🛒",color:"#FFE66D",skipMonths:[]},
+  {id:"reddad",label:"Reddad Charge",amount:3500,icon:"👤",color:"#B8B5FF",skipMonths:[]},
+  {id:"home_crd",label:"HOME CREDIT",amount:2632,icon:"🏠",color:"#FF6B6B",skipMonths:[]},
+  {id:"parent",label:"Parents Give",amount:1000,icon:"❤️",color:"#FF8B94",skipMonths:[]},
+  {id:"ecole",label:"Ecole Med-Yasser",amount:950,icon:"🎓",color:"#A8E6CF",skipMonths:["07","08"]},
+  {id:"internet",label:"INTERNET",amount:250,icon:"📶",color:"#4ECDC4",skipMonths:[]},
+  {id:"rak",label:"RAK (EAU & ÉLECTRICITÉ)",amount:230,icon:"💡",color:"#06D6A0",skipMonths:[]},
+  {id:"assurance",label:"Assurance Voiture",amount:4500,icon:"🚗",color:"#FF6B6B",skipMonths:[],onlyMonths:["03"]},
+  {id:"vignette",label:"Vignette DUSTER",amount:700,icon:"📋",color:"#FFD166",skipMonths:[],onlyMonths:["01"]}
 ];
-var DI = [
+var DI=[
   {id:"sal",label:"الراتب",amount:21128,icon:"💼",color:"#06D6A0"},
   {id:"child",label:"تعويض الأطفال",amount:900,icon:"👶",color:"#74B9FF"}
 ];
 var ICONS=["📦","🚗","🛒","💊","🎓","🍽️","❤️","🏦","📄","💡","📶","🎯","💰","🔧","⚽","👕","✈️","🎬","🏠","💳","🌿","⛽","🏥","📱","🎁","💼","👶","🏗️"];
 var COLS=["#FF6B6B","#4ECDC4","#FFE66D","#B8B5FF","#A8E6CF","#FF8B94","#06D6A0","#FFDAB9","#FFD166","#74B9FF","#fd79a8","#00cec9"];
 var CURRS=["MAD","DZD","TND","SAR","AED","USD","EUR"];
+var PAVS=["👨","👩","👦","👧","🧑","👴","👵","🧔","🙋","👨‍💼","👩‍💼","🫂","🤝","👫","👬","👭","💁","😊"];
+var PCOLS=["#B8B5FF","#06D6A0","#FFD166","#FF8B94","#74B9FF","#A8E6CF","#FF6B6B","#4ECDC4","#fd79a8","#FFDAB9"];
 
-// ── MONTH KEY HELPERS ─────────────────────────────────────
-// "current month" in budget terms: after 27th, we flip to next month
-function tm(){
-  var d=new Date();
-  if(d.getDate()>=27){
-    d.setMonth(d.getMonth()+1);
-  }
-  return d.getFullYear()+"-"+(d.getMonth()<9?"0":"")+(d.getMonth()+1);
-}
-
-// Add N months to a YYYY-MM key
-function addMonths(mk, n){
-  var p=mk.split("-");
-  var d=new Date(parseInt(p[0]), parseInt(p[1])-1+n, 1);
-  return d.getFullYear()+"-"+(d.getMonth()<9?"0":"")+(d.getMonth()+1);
-}
-
-// Compare two YYYY-MM keys
-function mkCmp(a, b){ return a < b ? -1 : a > b ? 1 : 0; }
-
-// ── LOCK LOGIC ────────────────────────────────────────────
-// The previous month (relative to current budget month) is LOCKED after midnight on the 27th.
-// i.e., once the real clock date >= 27, the previous budget month is frozen.
-function isPrevMonthLocked(){
-  var d=new Date();
-  return d.getDate() > 27; // after midnight of 27th → locked
-}
-
-// Get the previous budget month key
-function prevBudgetMonth(){
-  return addMonths(tm(), -1);
-}
-
-// Is the given month key locked for editing?
-function isMonthLocked(mk){
-  var now=tm();
-  var prev=prevBudgetMonth();
-  // Only prev month can be locked; future/current months are always editable
-  if(mk === prev && isPrevMonthLocked()) return true;
-  // Months older than prev are always locked
-  if(mkCmp(mk, prev) < 0) return true;
-  return false;
-}
-
-// ── VISIBLE MONTHS: prev, current, +4 future (6 total) ───
-function visibleMonths(){
-  var now=tm();
-  var months=[];
-  months.push(addMonths(now, -1)); // 1 month before
-  months.push(now);                // current
-  months.push(addMonths(now, 1));  // +1
-  months.push(addMonths(now, 2));  // +2
-  months.push(addMonths(now, 3));  // +3
-  months.push(addMonths(now, 4));  // +4
-  return months;
-}
-
-function gen10Y(){
-  var k=[],d=new Date(2024,0,1);
-  for(var i=0;i<144;i++){
-    k.push(d.getFullYear()+"-"+(d.getMonth()<9?"0":"")+(d.getMonth()+1));
-    d.setMonth(d.getMonth()+1);
-  }
-  return k;
-}
-var ALL = gen10Y();
-
-function td(){ return new Date().toISOString().slice(0,10); }
-function mlabel(mk){ var p=mk.split("-"); return new Date(p[0],p[1]-1,1).toLocaleDateString("ar-MA",{month:"long",year:"numeric"}); }
-function mshort(mk){ return new Date(mk+"-01").toLocaleDateString("ar-MA",{month:"short",year:"2-digit"}); }
-
-function getDeficit(mk){
-  var prev=addMonths(mk, -1);
-  if(!APP.months[prev]) return 0;
-  var pm=APP.months[prev];
-  var ti=pm.incomes.reduce(function(s,i){return s+i.amount;},0);
-  var tc=pm.charges.reduce(function(s,c){return s+c.amount;},0);
-  var surp=ti-tc;
-  return surp<0?Math.abs(surp):0;
-}
-
-function newMonth(mk){
-  var mo=mk?(mk.split("-")[1]):"00";
-  var charges=[];
-  DC.forEach(function(c){
-    if(c.skipMonths&&c.skipMonths.indexOf(mo)!==-1) return;
-    if(c.onlyMonths&&c.onlyMonths.indexOf(mo)===-1) return;
-    charges.push({id:c.id,label:c.label,amount:c.amount,icon:c.icon,color:c.color,paid:false});
-  });
-  return {
-    incomes: DI.map(function(i){ return {id:i.id,label:i.label,amount:i.amount,icon:i.icon,color:i.color}; }),
-    charges: charges,
-    savings: 0
-  };
-}
-
-function gm(k){
-  if(!APP.months[k]) APP.months[k]=newMonth(k);
-  var m=APP.months[k];
-  m.incomes=m.incomes.filter(function(i){return i.id!=="deficit_deduct";});
-  var d=getDeficit(k);
-  if(d>0){
-    m.incomes.push({id:"deficit_deduct",label:"عجز الشهر السابق (مُرحّل)",amount:-d,icon:"⚠️",color:"#FF6B6B"});
-  }
-  return m;
-}
+// ── MONTH HELPERS ─────────────────────────────────────────
+function tm(){var d=new Date();if(d.getDate()>=27)d.setMonth(d.getMonth()+1);return d.getFullYear()+"-"+(d.getMonth()<9?"0":"")+(d.getMonth()+1);}
+function addMonths(mk,n){var p=mk.split("-");var d=new Date(parseInt(p[0]),parseInt(p[1])-1+n,1);return d.getFullYear()+"-"+(d.getMonth()<9?"0":"")+(d.getMonth()+1);}
+function mkCmp(a,b){return a<b?-1:a>b?1:0;}
+function isPrevMonthLocked(){return new Date().getDate()>27;}
+function prevBudgetMonth(){return addMonths(tm(),-1);}
+function isMonthLocked(mk){var prev=prevBudgetMonth();if(mk===prev&&isPrevMonthLocked())return true;if(mkCmp(mk,prev)<0)return true;return false;}
+function visibleMonths(){var now=tm();var year=now.slice(0,4);var m=[];for(var i=1;i<=12;i++)m.push(year+"-"+(i<10?"0":"")+i);return m;}
+function gen10Y(){var k=[],d=new Date(2024,0,1);for(var i=0;i<144;i++){k.push(d.getFullYear()+"-"+(d.getMonth()<9?"0":"")+(d.getMonth()+1));d.setMonth(d.getMonth()+1);}return k;}
+var ALL=gen10Y();
+function td(){return new Date().toISOString().slice(0,10);}
+function mlabel(mk){var p=mk.split("-");return new Date(p[0],p[1]-1,1).toLocaleDateString("ar-MA",{month:"long",year:"numeric"});}
+function mshort(mk){return new Date(mk+"-01").toLocaleDateString("ar-MA",{month:"short",year:"2-digit"});}
+function getDeficit(mk){var prev=addMonths(mk,-1);if(!APP.months[prev])return 0;var pm=APP.months[prev];var ti=pm.incomes.reduce(function(s,i){return s+i.amount;},0);var tc=pm.charges.reduce(function(s,c){return s+c.amount;},0);var surp=ti-tc;return surp<0?Math.abs(surp):0;}
+function newMonth(mk){var mo=mk?(mk.split("-")[1]):"00";var charges=[];DC.forEach(function(c){if(c.skipMonths&&c.skipMonths.indexOf(mo)!==-1)return;if(c.onlyMonths&&c.onlyMonths.indexOf(mo)===-1)return;charges.push({id:c.id,label:c.label,amount:c.amount,icon:c.icon,color:c.color,paid:false});});return{incomes:DI.map(function(i){return{id:i.id,label:i.label,amount:i.amount,icon:i.icon,color:i.color};}),charges:charges,savings:0};}
+function gm(k){if(!APP.months[k])APP.months[k]=newMonth(k);var m=APP.months[k];m.incomes=m.incomes.filter(function(i){return i.id!=="deficit_deduct";});var d=getDeficit(k);if(d>0)m.incomes.push({id:"deficit_deduct",label:"عجز الشهر السابق (مُرحّل)",amount:-d,icon:"⚠️",color:"#FF6B6B"});return m;}
 
 // ── PASSWORD ──────────────────────────────────────────────
-var PWD_KEY    = "masarifi_pwd";
-var UNLOCK_KEY = "masarifi_unlocked"; // sessionStorage: reset on app close
-
-function getPwd(){ return localStorage.getItem(PWD_KEY)||""; }
-function setPwdStore(p){ localStorage.setItem(PWD_KEY,p); }
-function removePwd(){ localStorage.removeItem(PWD_KEY); }
-
-// Once unlocked per session it stays open until tab is closed
-function isUnlocked(){
-  if(!getPwd()) return true; // no password set → always open
-  return sessionStorage.getItem(UNLOCK_KEY)==="1";
-}
-function setUnlocked(){ sessionStorage.setItem(UNLOCK_KEY,"1"); }
-function reLock(){ sessionStorage.removeItem(UNLOCK_KEY); }
+var PWD_KEY="masarifi_pwd",UNLOCK_KEY="masarifi_unlocked";
+function getPwd(){return localStorage.getItem(PWD_KEY)||"";}
+function setPwdStore(p){localStorage.setItem(PWD_KEY,p);}
+function removePwd(){localStorage.removeItem(PWD_KEY);}
+function isUnlocked(){if(!getPwd())return true;return sessionStorage.getItem(UNLOCK_KEY)==="1";}
+function setUnlocked(){sessionStorage.setItem(UNLOCK_KEY,"1");}
+function reLock(){sessionStorage.removeItem(UNLOCK_KEY);}
 
 // ── STATE ─────────────────────────────────────────────────
-var curM  = tm();
-var curTab= "charges";
-var modal = null;
-var pendingDelId   = null;
-var pendingDelType = null;
-var numVal  = "";
-var numLabel= "";
-var numIcon = "📦";
-var numCol  = "#B8B5FF";
-var numStep = "info";
-var editId  = null;
-var editType= null;
-// Password modal sub-state
-var pwdVal     = "";   // what user is typing
-var pwdMode    = "";   // "unlock" | "set" | "change-old" | "change-new" | "remove"
-var pwdOldOk   = false;// true after old password verified during change
+var curPage="budget";
+var curM=tm();
+var curTab="charges";
+var modal=null;
+var pendingDelId=null,pendingDelType=null;
+var numVal="",numLabel="",numIcon="📦",numCol="#B8B5FF",numStep="info";
+var editId=null,editType=null;
+var pwdVal="",pwdMode="",pwdOldOk=false;
+
+// ── SULAF STATE ───────────────────────────────────────────
+var sulafView="list"; // "list" | "detail"
+var sulafPersonId=null;
+var sulafModal=null;
+var spName="",spAvatar="👨",spColor="#B8B5FF",spEditId=null;
+var txType="lend",txAmount="",txNote="",txDate=td();
+var pendingDelPid=null,pendingDelTxId=null;
 
 // ── TOAST ─────────────────────────────────────────────────
 var _tt;
-function toast(msg,type){
-  var el=document.getElementById("toast");
-  el.textContent=msg; el.className="on "+(type||"s");
-  clearTimeout(_tt); _tt=setTimeout(function(){ el.className=""; },2400);
-}
+function toast(msg,type){var el=document.getElementById("toast");el.textContent=msg;el.className="on "+(type||"s");clearTimeout(_tt);_tt=setTimeout(function(){el.className="";},2400);}
 
 // ── AUTO BACKUP ───────────────────────────────────────────
-function autoBackup(){
-  try{
-    var last=localStorage.getItem("masarifi_bk");
-    var now=new Date();
-    var key=now.getFullYear()+"-"+now.getMonth();
-    if(last===key||Object.keys(APP.months).length===0) return;
-    var blob=new Blob([JSON.stringify(APP,null,2)],{type:"application/json"});
-    var url=URL.createObjectURL(blob);
-    var a=document.createElement("a");
-    a.href=url;
-    a.download="masarifi_auto_"+now.getFullYear()+"-"+(now.getMonth()+1)+"-"+now.getDate()+".json";
-    a.click();
-    URL.revokeObjectURL(url);
-    localStorage.setItem("masarifi_bk",key);
-    toast("تم النسخ الاحتياطي التلقائي ✓");
-  }catch(e){}
-}
+function autoBackup(){try{var last=localStorage.getItem("masarifi_bk");var now=new Date();var key=now.getFullYear()+"-"+now.getMonth();if(last===key||Object.keys(APP.months).length===0)return;var blob=new Blob([JSON.stringify(APP,null,2)],{type:"application/json"});var url=URL.createObjectURL(blob);var a=document.createElement("a");a.href=url;a.download="masarifi_auto_"+now.getFullYear()+"-"+(now.getMonth()+1)+"-"+now.getDate()+".json";a.click();URL.revokeObjectURL(url);localStorage.setItem("masarifi_bk",key);toast("تم النسخ الاحتياطي التلقائي ✓");}catch(e){}}
 
-// ── GUARD: block edits on locked months ───────────────────
-function guardLocked(){
-  if(!isMonthLocked(curM)) return false;
-  if(isUnlocked()) return false; // already unlocked this session
-  // Need password → open unlock modal
-  pwdVal=""; pwdMode="unlock"; modal="pwd"; render();
-  return true;
+// ── LOCK GUARD ────────────────────────────────────────────
+function guardLocked(){if(!isMonthLocked(curM))return false;if(isUnlocked())return false;pwdVal="";pwdMode="unlock";modal="pwd";render();return true;}
+
+// ── PAGE NAVIGATION ───────────────────────────────────────
+function setPage(p){
+  curPage=p;
+  if(p==="sulaf"){sulafView="list";sulafPersonId=null;sulafModal=null;}
+  modal=null;
+  document.querySelectorAll(".bnav").forEach(function(b){b.classList.remove("on");});
+  var btn=document.getElementById("bnav-"+p);
+  if(btn)btn.classList.add("on");
+  render();
 }
 
 // ── RENDER ────────────────────────────────────────────────
 function render(){
   var el=document.getElementById("main");
   var st=el.scrollTop;
-  el.innerHTML=page();
-  bind();
+  el.innerHTML=curPage==="sulaf"?pageSulaf():pageBudget();
   el.scrollTop=st;
 }
 
-// ── PAGE ──────────────────────────────────────────────────
-function page(){
+// ── SULAF HELPERS ─────────────────────────────────────────
+function getPerson(id){return APP.persons.find(function(p){return p.id===id;})||null;}
+
+// balance: positive = they owe you, negative = you owe them
+function balance(p){
+  return (p.transactions||[]).reduce(function(s,tx){
+    if(tx.type==="lend")return s+tx.amount;
+    if(tx.type==="borrow")return s-tx.amount;
+    if(tx.type==="settle")return s+tx.settled; // settled is signed
+    return s;
+  },0);
+}
+
+function sulafSummary(){
+  var owed=0,owing=0;
+  APP.persons.forEach(function(p){var b=balance(p);if(b>0)owed+=b;else owing+=Math.abs(b);});
+  return{owed:owed,owing:owing};
+}
+
+function fmtDate(iso){
+  if(!iso)return"";
+  try{return new Date(iso).toLocaleDateString("ar-MA",{day:"2-digit",month:"2-digit",year:"numeric"});}catch(e){return iso;}
+}
+
+// ── SULAF PAGE ────────────────────────────────────────────
+function pageSulaf(){
+  if(sulafView==="detail"&&sulafPersonId)return pageDetail();
+  return pageList();
+}
+
+function pageList(){
+  var cur=APP.currency;
+  var sm=sulafSummary();
+  var h="";
+
+  h+='<div style="background:linear-gradient(160deg,#1a1d2e,#0F1117);padding:48px 20px 16px">';
+  h+='<div style="font-size:22px;font-weight:900;margin-bottom:2px">🤝 السلف</div>';
+  h+='<div style="font-size:11px;color:#555;margin-bottom:16px">تتبع من يدينك ومن أنت مدين له</div>';
+
+  // summary row
+  h+='<div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:14px">';
+  h+='<div class="card" style="margin-bottom:0;background:#0a1f0a;border:1px solid #06D6A022">';
+  h+='<div style="font-size:10px;color:#555;margin-bottom:3px">💚 يدينون لك</div>';
+  h+='<div style="font-size:20px;font-weight:900;color:#06D6A0">'+sm.owed.toLocaleString()+'</div>';
+  h+='<div style="font-size:9px;color:#444">'+cur+'</div></div>';
+  h+='<div class="card" style="margin-bottom:0;background:#1f0a0a;border:1px solid #FF6B6B22">';
+  h+='<div style="font-size:10px;color:#555;margin-bottom:3px">❤️ أنت مدين</div>';
+  h+='<div style="font-size:20px;font-weight:900;color:#FF8B94">'+sm.owing.toLocaleString()+'</div>';
+  h+='<div style="font-size:9px;color:#444">'+cur+'</div></div>';
+  h+='</div>';
+
+  h+='<button onclick="openSulafModal(\'addPerson\')" style="width:100%;background:#1E2030;border:1.5px dashed #B8B5FF55;border-radius:13px;padding:11px;color:#B8B5FF;font-size:13px;cursor:pointer;font-family:Cairo,sans-serif">+ إضافة شخص</button>';
+  h+='</div>';
+
+  h+='<div style="padding:12px 20px">';
+
+  if(APP.persons.length===0){
+    h+='<div style="text-align:center;padding:50px 20px">';
+    h+='<div style="font-size:52px;margin-bottom:14px;opacity:.25">🤝</div>';
+    h+='<div style="font-size:14px;color:#444">لا يوجد أشخاص بعد</div>';
+    h+='<div style="font-size:11px;color:#333;margin-top:6px">أضف شخصاً لتبدأ بتتبع السلف</div></div>';
+  } else {
+    var sorted=APP.persons.slice().sort(function(a,b){return Math.abs(balance(b))-Math.abs(balance(a));});
+    sorted.forEach(function(p){
+      var bal=balance(p);
+      var bc=bal>0?"#06D6A0":bal<0?"#FF8B94":"#555";
+      var txCount=(p.transactions||[]).length;
+      var balLabel=bal>0?"يدينك":bal<0?"أنت مدين":"مسدد ✓";
+      h+='<div class="person-card" onclick="openDetail(\''+p.id+'\')">';
+      h+='<div class="accent-bar" style="background:'+p.color+'"></div>';
+      h+='<div style="display:flex;align-items:center;gap:11px">';
+      h+='<div style="width:44px;height:44px;border-radius:99px;background:'+p.color+'22;display:flex;align-items:center;justify-content:center;font-size:22px;flex-shrink:0">'+p.avatar+'</div>';
+      h+='<div style="flex:1">';
+      h+='<div style="font-size:14px;font-weight:800;color:#ddd">'+p.name+'</div>';
+      h+='<div style="font-size:10px;color:#555;margin-top:2px">'+txCount+' معاملة &nbsp;•&nbsp; <span style="color:'+bc+'">'+balLabel+'</span></div>';
+      h+='</div>';
+      h+='<div style="text-align:left">';
+      if(bal!==0){
+        h+='<div style="font-size:17px;font-weight:900;color:'+bc+'">'+Math.abs(bal).toLocaleString()+'</div>';
+        h+='<div style="font-size:9px;color:#444;text-align:left">'+cur+'</div>';
+      } else {
+        h+='<div style="font-size:22px;opacity:.25">✓</div>';
+      }
+      h+='</div></div></div>';
+    });
+  }
+
+  h+='</div>';
+  h+=buildSulafModal();
+  return h;
+}
+
+function pageDetail(){
+  var p=getPerson(sulafPersonId);
+  if(!p){sulafView="list";sulafPersonId=null;return pageList();}
+  var cur=APP.currency;
+  var bal=balance(p);
+  var bc=bal>0?"#06D6A0":bal<0?"#FF8B94":"#888";
+  var txs=(p.transactions||[]).slice().reverse();
+  var h="";
+
+  h+='<div style="background:linear-gradient(160deg,#1a1d2e,#0F1117);padding:48px 20px 16px">';
+  // back + name header
+  h+='<div style="display:flex;align-items:center;gap:10px;margin-bottom:16px">';
+  h+='<button onclick="sulafBack()" style="background:#1E2030;border:none;border-radius:99px;width:34px;height:34px;color:#888;cursor:pointer;font-size:17px;flex-shrink:0">←</button>';
+  h+='<div style="width:40px;height:40px;border-radius:99px;background:'+p.color+'22;display:flex;align-items:center;justify-content:center;font-size:20px">'+p.avatar+'</div>';
+  h+='<div style="flex:1"><div style="font-size:18px;font-weight:900">'+p.name+'</div>';
+  h+='<div style="font-size:10px;color:#555">'+(p.transactions||[]).length+' معاملة</div></div>';
+  h+='<button onclick="openSulafModal(\'editPerson\',\''+p.id+'\')" style="background:#1E2030;border:none;border-radius:8px;width:30px;height:30px;color:#666;cursor:pointer;font-size:13px">✏️</button>';
+  h+='<button onclick="askDelPerson(\''+p.id+'\')" style="background:#1E2030;border:none;border-radius:8px;width:30px;height:30px;color:#555;cursor:pointer;font-size:13px">🗑</button>';
+  h+='</div>';
+
+  // balance card
+  var bgBal=bal>0?"#0a1f0a":bal<0?"#1f0a0a":"#1E2030";
+  var brBal=bal>0?"#06D6A022":bal<0?"#FF6B6B22":"#2A2D3E";
+  h+='<div class="card" style="background:'+bgBal+';border:1px solid '+brBal+';margin-bottom:0">';
+  h+='<div style="font-size:10px;color:#555;margin-bottom:5px">الرصيد الحالي</div>';
+  h+='<div style="font-size:28px;font-weight:900;color:'+bc+'">';
+  if(bal>0)h+='+'+bal.toLocaleString()+' <span style="font-size:12px;color:#444">'+cur+'</span>';
+  else if(bal<0)h+=bal.toLocaleString()+' <span style="font-size:12px;color:#444">'+cur+'</span>';
+  else h+='<span style="font-size:17px">مسدد بالكامل ✓</span>';
+  h+='</div>';
+  if(bal>0)h+='<div style="font-size:11px;color:#3a8a5a;margin-top:3px">'+p.name+' يدين لك بهذا المبلغ</div>';
+  else if(bal<0)h+='<div style="font-size:11px;color:#8a3a3a;margin-top:3px">أنت مدين لـ '+p.name+' بهذا المبلغ</div>';
+  h+='</div>';
+  h+='</div>';
+
+  h+='<div style="padding:12px 20px">';
+
+  // action buttons
+  h+='<div style="display:grid;grid-template-columns:1fr 1fr'+(bal!==0?" 1fr":"")+';gap:8px;margin-bottom:14px">';
+  h+='<button onclick="openSulafModal(\'addTx\',\''+p.id+'\',\'lend\')" style="background:#06D6A015;border:1.5px solid #06D6A044;border-radius:13px;padding:12px 0;color:#06D6A0;font-size:11px;font-weight:800;cursor:pointer;font-family:Cairo,sans-serif;text-align:center;line-height:1.6">💸<br>سلّفته</button>';
+  h+='<button onclick="openSulafModal(\'addTx\',\''+p.id+'\',\'borrow\')" style="background:#FF6B6B15;border:1.5px solid #FF6B6B44;border-radius:13px;padding:12px 0;color:#FF8B94;font-size:11px;font-weight:800;cursor:pointer;font-family:Cairo,sans-serif;text-align:center;line-height:1.6">🤲<br>اقترضت منه</button>';
+  if(bal!==0){
+    h+='<button onclick="openSulafModal(\'addTx\',\''+p.id+'\',\'settle\')" style="background:#FFD16615;border:1.5px solid #FFD16644;border-radius:13px;padding:12px 0;color:#FFD166;font-size:11px;font-weight:800;cursor:pointer;font-family:Cairo,sans-serif;text-align:center;line-height:1.6">✅<br>تسديد</button>';
+  }
+  h+='</div>';
+
+  // transactions list
+  if(txs.length===0){
+    h+='<div style="text-align:center;padding:30px 20px"><div style="font-size:36px;opacity:.2">📋</div><div style="font-size:12px;color:#444;margin-top:8px">لا توجد معاملات بعد</div></div>';
+  } else {
+    h+='<div style="font-size:11px;color:#555;margin-bottom:8px;font-weight:700">سجل المعاملات</div>';
+    txs.forEach(function(tx){
+      var isLend=tx.type==="lend";
+      var isBorrow=tx.type==="borrow";
+      var isSettle=tx.type==="settle";
+      var txc=isLend?"#06D6A0":isBorrow?"#FF8B94":"#FFD166";
+      var txIcon=isLend?"💸":isBorrow?"🤲":"✅";
+      var txLbl=isLend?"سلّفته":isBorrow?"اقترضت منه":"تسديد";
+      var txAmt=isSettle?Math.abs(tx.settled):tx.amount;
+      var txSign=isLend?"+":isBorrow?"-":(tx.settled>=0?"+":"");
+      h+='<div class="tx-row">';
+      h+='<div class="tx-badge" style="background:'+txc+'18">'+txIcon+'</div>';
+      h+='<div style="flex:1">';
+      h+='<div style="display:flex;align-items:center;gap:6px;margin-bottom:3px">';
+      h+='<span class="pill" style="background:'+txc+'18;color:'+txc+'">'+txLbl+'</span>';
+      h+='<span style="font-size:9px;color:#444">'+fmtDate(tx.date)+'</span>';
+      h+='</div>';
+      if(tx.note)h+='<div style="font-size:11px;color:#666;margin-bottom:2px">'+tx.note+'</div>';
+      h+='</div>';
+      h+='<div style="display:flex;align-items:center;gap:6px;flex-shrink:0">';
+      h+='<div style="text-align:left">';
+      h+='<div style="font-size:15px;font-weight:900;color:'+txc+'">'+txSign+txAmt.toLocaleString()+'</div>';
+      h+='<div style="font-size:9px;color:#444">'+cur+'</div>';
+      h+='</div>';
+      h+='<button onclick="askDelTx(\''+p.id+'\',\''+tx.id+'\')" style="background:#2A2D3E;border:none;border-radius:7px;width:26px;height:26px;font-size:11px;cursor:pointer;color:#555">🗑</button>';
+      h+='</div></div>';
+    });
+  }
+
+  h+='</div>';
+  h+=buildSulafModal();
+  return h;
+}
+
+// ── SULAF MODAL ───────────────────────────────────────────
+function buildSulafModal(){
+  if(!sulafModal)return"";
+  var h='<div class="modal-bg" onclick="bgClickSulaf(event)"><div class="modal">';
+  h+='<div class="row" style="margin-bottom:16px">';
+
+  // ── ADD / EDIT PERSON
+  if(sulafModal==="addPerson"||sulafModal==="editPerson"){
+    var isEd=sulafModal==="editPerson";
+    h+='<span style="font-size:16px;font-weight:800">'+(isEd?"✏️ تعديل الشخص":"👤 إضافة شخص")+'</span>';
+    h+='<button onclick="closeSulafModal()" style="background:#1E2030;border:none;border-radius:99px;width:30px;height:30px;color:#888;cursor:pointer;font-size:16px">✕</button></div>';
+    h+='<label class="lbl">الاسم</label>';
+    h+='<input id="spname" class="inp" type="text" placeholder="مثل: محمد، الأخ، صديق العمل..." value="'+spName+'" oninput="spName=this.value"/>';
+    h+='<label class="lbl">الرمز التعبيري</label>';
+    h+='<div style="display:flex;flex-wrap:wrap;gap:6px;margin-bottom:12px">';
+    PAVS.forEach(function(av){
+      h+='<button onclick="setSpAv(\''+av+'\')" style="background:'+(spAvatar===av?"#B8B5FF22":"#1E2030")+';border:2px solid '+(spAvatar===av?"#B8B5FF":"transparent")+';border-radius:9px;padding:6px 8px;font-size:20px;cursor:pointer">'+av+'</button>';
+    });
+    h+='</div>';
+    h+='<label class="lbl">اللون</label>';
+    h+='<div style="display:flex;gap:7px;flex-wrap:wrap;margin-bottom:18px">';
+    PCOLS.forEach(function(c){
+      h+='<button onclick="setSpCol(\''+c+'\')" style="width:30px;height:30px;border-radius:99px;background:'+c+';border:'+(spColor===c?"3px solid #fff":"3px solid transparent")+';cursor:pointer"></button>';
+    });
+    h+='</div>';
+    h+='<button onclick="savePerson()" class="btn-main">'+(isEd?"حفظ التعديل ✓":"إضافة الشخص ✓")+'</button>';
+  }
+
+  // ── ADD TRANSACTION
+  else if(sulafModal==="addTx"){
+    var tCol=txType==="lend"?"#06D6A0":txType==="borrow"?"#FF8B94":"#FFD166";
+    var tLbl=txType==="lend"?"💸 سلّفته":txType==="borrow"?"🤲 اقترضت منه":"✅ تسديد";
+    h+='<span style="font-size:15px;font-weight:800;color:'+tCol+'">'+tLbl+'</span>';
+    h+='<button onclick="closeSulafModal()" style="background:#1E2030;border:none;border-radius:99px;width:30px;height:30px;color:#888;cursor:pointer;font-size:16px">✕</button></div>';
+
+    // type toggle
+    h+='<div style="display:flex;gap:7px;margin-bottom:14px">';
+    [{v:"lend",l:"💸 سلّفته",c:"#06D6A0"},{v:"borrow",l:"🤲 اقترضت",c:"#FF8B94"},{v:"settle",l:"✅ تسديد",c:"#FFD166"}].forEach(function(t){
+      var sel=txType===t.v;
+      h+='<button onclick="setTxType(\''+t.v+'\')" style="flex:1;background:'+(sel?t.c+"22":"#1E2030")+';border:1.5px solid '+(sel?t.c+"66":"#2A2D3E")+';border-radius:11px;padding:8px 0;color:'+(sel?t.c:"#555")+';font-size:11px;font-weight:'+(sel?"800":"400")+';cursor:pointer;font-family:Cairo,sans-serif">'+t.l+'</button>';
+    });
+    h+='</div>';
+
+    // amount display
+    h+='<div style="font-size:38px;font-weight:900;color:'+(txAmount?"#fff":"#333")+';text-align:center;margin-bottom:10px">'+(txAmount||"0")+' <span style="font-size:13px;color:#555">'+APP.currency+'</span></div>';
+
+    // numpad
+    h+='<div class="numpad">';
+    ["1","2","3","4","5","6","7","8","9",".","0","⌫"].forEach(function(k){
+      h+='<button class="nk'+(k==="⌫"?" del":"")+'" onclick="nkTx(\''+k+'\')">'+k+'</button>';
+    });
+    h+='</div>';
+
+    // quick-fill full balance for settle
+    if(txType==="settle"&&sulafPersonId){
+      var pp=getPerson(sulafPersonId);
+      if(pp){var bbal=balance(pp);if(bbal!==0){
+        h+='<button onclick="txAmount=\''+Math.abs(bbal)+'\';render()" style="width:100%;background:#1E2030;border:1.5px dashed #FFD16644;border-radius:11px;padding:8px;color:#FFD166;font-size:11px;cursor:pointer;font-family:Cairo,sans-serif;margin-bottom:8px">تسديد كامل المبلغ: '+Math.abs(bbal).toLocaleString()+' '+APP.currency+'</button>';
+      }}
+    }
+
+    h+='<label class="lbl" style="margin-top:4px">ملاحظة (اختياري)</label>';
+    h+='<input id="txnote" class="inp" type="text" placeholder="مثل: قرض الحفلة، كراء سيارة..." value="'+txNote+'" oninput="txNote=this.value"/>';
+    h+='<label class="lbl">التاريخ</label>';
+    h+='<input id="txdate" class="inp" type="date" value="'+txDate+'" oninput="txDate=this.value" style="color-scheme:dark"/>';
+    h+='<button onclick="saveTx()" class="btn-main" style="margin-top:6px">تأكيد ✓</button>';
+  }
+
+  // ── CONFIRM DELETE PERSON
+  else if(sulafModal==="confirmDelPerson"){
+    h+='<span style="font-size:16px;font-weight:800">🗑️ حذف الشخص</span>';
+    h+='<button onclick="closeSulafModal()" style="background:#1E2030;border:none;border-radius:99px;width:30px;height:30px;color:#888;cursor:pointer;font-size:16px">✕</button></div>';
+    h+='<div style="font-size:14px;color:#ccc;text-align:center;margin:20px 0;line-height:2">سيتم حذف الشخص وجميع معاملاته<br><span style="color:#FF6B6B;font-weight:700">لا يمكن التراجع عن هذا الإجراء</span></div>';
+    h+='<div style="display:flex;gap:10px">';
+    h+='<button onclick="doDelPerson()" style="flex:1;background:#FF6B6B;border:none;border-radius:13px;padding:14px;color:#fff;font-size:15px;font-weight:800;cursor:pointer;font-family:Cairo,sans-serif">نعم، احذف</button>';
+    h+='<button onclick="closeSulafModal()" style="flex:1;background:#1E2030;border:none;border-radius:13px;padding:14px;color:#888;font-size:15px;cursor:pointer;font-family:Cairo,sans-serif">إلغاء</button>';
+    h+='</div>';
+  }
+
+  // ── CONFIRM DELETE TX
+  else if(sulafModal==="confirmDelTx"){
+    h+='<span style="font-size:16px;font-weight:800">🗑️ حذف المعاملة</span>';
+    h+='<button onclick="closeSulafModal()" style="background:#1E2030;border:none;border-radius:99px;width:30px;height:30px;color:#888;cursor:pointer;font-size:16px">✕</button></div>';
+    h+='<div style="font-size:14px;color:#ccc;text-align:center;margin:20px 0">هل تريد حذف هذه المعاملة؟</div>';
+    h+='<div style="display:flex;gap:10px">';
+    h+='<button onclick="doDelTx()" style="flex:1;background:#FF6B6B;border:none;border-radius:13px;padding:14px;color:#fff;font-size:15px;font-weight:800;cursor:pointer;font-family:Cairo,sans-serif">نعم، احذف</button>';
+    h+='<button onclick="closeSulafModal()" style="flex:1;background:#1E2030;border:none;border-radius:13px;padding:14px;color:#888;font-size:15px;cursor:pointer;font-family:Cairo,sans-serif">إلغاء</button>';
+    h+='</div>';
+  }
+
+  h+='</div></div>';
+  return h;
+}
+
+// ── SULAF ACTIONS ─────────────────────────────────────────
+function openSulafModal(m,pid,tt){
+  if(m==="addPerson"){spName="";spAvatar="👨";spColor="#B8B5FF";spEditId=null;}
+  if(m==="editPerson"&&pid){var pp=getPerson(pid);if(pp){spName=pp.name;spAvatar=pp.avatar;spColor=pp.color;spEditId=pid;}}
+  if(m==="addTx"){txAmount="";txNote="";txDate=td();if(tt)txType=tt;}
+  if(pid)sulafPersonId=pid;
+  sulafModal=m;render();
+}
+function closeSulafModal(){sulafModal=null;render();}
+function bgClickSulaf(e){if(e.target===e.currentTarget){sulafModal=null;render();}}
+function setSpAv(av){spAvatar=av;render();}
+function setSpCol(c){spColor=c;render();}
+function setTxType(t){txType=t;render();}
+function nkTx(k){if(k==="⌫"){txAmount=txAmount.slice(0,-1);}else if(k==="."&&txAmount.includes(".")){return;}else if(txAmount.length>=9){return;}else{txAmount+=k;}render();}
+
+function openDetail(pid){sulafPersonId=pid;sulafView="detail";render();}
+function sulafBack(){sulafView="list";sulafPersonId=null;sulafModal=null;render();}
+
+function savePerson(){
+  if(!spName.trim()){toast("أدخل الاسم","e");return;}
+  if(spEditId){
+    APP.persons=APP.persons.map(function(p){
+      if(p.id!==spEditId)return p;
+      return Object.assign({},p,{name:spName.trim(),avatar:spAvatar,color:spColor});
+    });
+    toast("تم التعديل ✓");
+  } else {
+    APP.persons.push({id:Date.now()+"_"+Math.random().toString(36).slice(2),name:spName.trim(),avatar:spAvatar,color:spColor,transactions:[]});
+    toast("تمت إضافة الشخص ✓");
+  }
+  save();sulafModal=null;render();
+}
+
+function saveTx(){
+  var v=parseFloat(txAmount);
+  if(isNaN(v)||v<=0){toast("أدخل مبلغاً صحيحاً","e");return;}
+  var p=getPerson(sulafPersonId);
+  if(!p){toast("خطأ","e");return;}
+  if(!p.transactions)p.transactions=[];
+  var rec={id:Date.now()+"_"+Math.random().toString(36).slice(2),type:txType,date:txDate||td(),note:txNote.trim()};
+  if(txType==="settle"){
+    var bal=balance(p);
+    rec.settled=bal>0?-v:v; // negative reduces their debt, positive reduces yours
+    rec.amount=v;
+  } else {
+    rec.amount=v;
+  }
+  p.transactions.push(rec);
+  save();sulafModal=null;
+  var lbl=txType==="lend"?"تم تسجيل السلفة":txType==="borrow"?"تم تسجيل القرض":"تم تسجيل التسديد";
+  toast(lbl+" ✓");render();
+}
+
+function askDelPerson(pid){pendingDelPid=pid;sulafModal="confirmDelPerson";render();}
+function doDelPerson(){
+  APP.persons=APP.persons.filter(function(p){return p.id!==pendingDelPid;});
+  save();sulafModal=null;sulafView="list";sulafPersonId=null;
+  toast("تم حذف الشخص","e");render();
+}
+function askDelTx(pid,txid){sulafPersonId=pid;pendingDelTxId=txid;sulafModal="confirmDelTx";render();}
+function doDelTx(){
+  var p=getPerson(sulafPersonId);
+  if(p)p.transactions=(p.transactions||[]).filter(function(tx){return tx.id!==pendingDelTxId;});
+  save();sulafModal=null;toast("تم حذف المعاملة","e");render();
+}
+
+// ═══════════════════════════════════════════════════════════
+// BUDGET PAGE (original, complete)
+// ═══════════════════════════════════════════════════════════
+function pageBudget(){
   var md=gm(curM);
   var tInc=md.incomes.reduce(function(s,i){return s+i.amount;},0);
   var tChg=md.charges.reduce(function(s,c){return s+c.amount;},0);
@@ -272,40 +516,27 @@ function page(){
   var vs=visibleMonths();
   var h="";
 
-  // ── HEADER
   h+='<div style="background:linear-gradient(160deg,#1a1d2e,#0F1117);padding:48px 0 0">';
   h+='<div style="display:flex;gap:7px;overflow-x:auto;padding:0 20px 12px">';
   vs.forEach(function(mk){
-    var isNow=mk===now;
-    var isCur=mk===curM;
-    var isLk=isMonthLocked(mk);
-    var s= isNow  ? "border-color:#06D6A0;color:#06D6A0;background:#06D6A015" :
-           isCur  ? "border-color:#B8B5FF;color:#B8B5FF;background:#B8B5FF15" : "";
+    var isNow=mk===now,isCur=mk===curM,isLk=isMonthLocked(mk);
+    var s=isNow?"border-color:#06D6A0;color:#06D6A0;background:#06D6A015":isCur?"border-color:#B8B5FF;color:#B8B5FF;background:#B8B5FF15":"";
     var lockIcon=isLk?' <span style="font-size:9px;opacity:.6">🔒</span>':'';
     h+='<div class="chip" style="'+s+'" onclick="setCurM(\''+mk+'\')">'+mshort(mk)+lockIcon+'</div>';
   });
   h+='</div>';
-
-  // summary
   h+='<div style="padding:0 20px 14px">';
   var now2=new Date();
   var fullDate=now2.toLocaleDateString("ar-MA",{weekday:"long",day:"numeric",month:"long",year:"numeric"});
   h+='<div style="font-size:12px;color:#888;margin-bottom:8px;cursor:pointer;display:flex;align-items:center;gap:6px" onclick="setCurM(tm())">📅 '+fullDate+(curM!==now?'<span style="color:#B8B5FF;font-size:10px;background:#B8B5FF15;border-radius:99px;padding:1px 8px">← الشهر الحالي</span>':'')+'</div>';
 
-  // Lock banner for previous month
   if(locked){
     h+='<div class="lock-banner">';
     if(isUnlocked()){
-      h+='<span style="font-size:20px">🔓</span><div style="flex:1">';
-      h+='<div style="font-size:13px;font-weight:700;color:#FFD166">الشهر مفتوح مؤقتاً بكلمة المرور</div>';
-      h+='<div style="font-size:10px;color:#554400;margin-top:2px">سيعود للقفل عند إغلاق التطبيق</div>';
-      h+='</div>';
+      h+='<span style="font-size:20px">🔓</span><div style="flex:1"><div style="font-size:13px;font-weight:700;color:#FFD166">الشهر مفتوح مؤقتاً بكلمة المرور</div><div style="font-size:10px;color:#554400;margin-top:2px">سيعود للقفل عند إغلاق التطبيق</div></div>';
       h+='<button onclick="reLockNow()" style="background:#2A2D3E;border:none;border-radius:8px;padding:5px 10px;color:#888;font-size:11px;cursor:pointer;font-family:Cairo,sans-serif">🔒 قفل</button>';
     } else {
-      h+='<span style="font-size:20px">🔒</span><div style="flex:1">';
-      h+='<div style="font-size:13px;font-weight:700;color:#FF8B94">الشهر مقفل للتعديل</div>';
-      h+='<div style="font-size:10px;color:#664444;margin-top:2px">يُقفل الشهر السابق تلقائياً منتصف ليل 27 من كل شهر</div>';
-      h+='</div>';
+      h+='<span style="font-size:20px">🔒</span><div style="flex:1"><div style="font-size:13px;font-weight:700;color:#FF8B94">الشهر مقفل للتعديل</div><div style="font-size:10px;color:#664444;margin-top:2px">يُقفل الشهر السابق تلقائياً منتصف ليل 27 من كل شهر</div></div>';
       h+='<button onclick="openPwdModal(\'unlock\')" style="background:#FF6B6B22;border:1.5px solid #FF6B6B44;border-radius:8px;padding:5px 10px;color:#FF8B94;font-size:11px;cursor:pointer;font-family:Cairo,sans-serif">🔑 فتح</button>';
     }
     h+='</div>';
@@ -323,176 +554,81 @@ function page(){
   h+='<span style="font-size:18px;font-weight:900;color:'+sc+'">'+(surp>=0?"+":"")+surp.toLocaleString()+' '+cur+'</span></div>';
   h+='<div class="bar-t"><div class="bar-f" style="width:'+(tInc>0?Math.min((tChg/tInc)*100,100):0)+'%;background:'+sc+'"></div></div>';
   h+='<div class="row" style="margin-top:3px;font-size:9px;color:#444"><span>مدفوع: '+paid.toLocaleString()+'</span><span>متبقي: '+(tChg-paid).toLocaleString()+'</span></div>';
-  if(deficit>0){
-    h+='<div style="margin-top:8px;background:#FF6B6B15;border-radius:8px;padding:7px 10px;font-size:11px;color:#FF8B94">⚠️ سيُخصم عجز '+deficit.toLocaleString()+' '+cur+' من ميزانية الشهر القادم تلقائياً</div>';
-  }
-  if(prevDeficit>0){
-    h+='<div style="margin-top:8px;background:#FF6B6B15;border-radius:8px;padding:7px 10px;font-size:11px;color:#FF8B94">⚠️ عجز مُرحّل من الشهر الماضي: '+prevDeficit.toLocaleString()+' '+cur+'</div>';
-  }
+  if(deficit>0)h+='<div style="margin-top:8px;background:#FF6B6B15;border-radius:8px;padding:7px 10px;font-size:11px;color:#FF8B94">⚠️ سيُخصم عجز '+deficit.toLocaleString()+' '+cur+' من ميزانية الشهر القادم تلقائياً</div>';
+  if(prevDeficit>0)h+='<div style="margin-top:8px;background:#FF6B6B15;border-radius:8px;padding:7px 10px;font-size:11px;color:#FF8B94">⚠️ عجز مُرحّل من الشهر الماضي: '+prevDeficit.toLocaleString()+' '+cur+'</div>';
   h+='</div>';
   var sv=md.savings||0;
   var totalSavings=Object.keys(APP.months).reduce(function(s,k){return s+(APP.months[k].savings||0);},0);
   h+='<div class="card" style="border:1.5px solid '+(sv>0?"#74B9FF44":"#2A2D3E")+';background:'+(sv>0?"#0a1f2a":"#1E2030")+'">';
   h+='<div class="row"><div><div style="font-size:11px;color:#74B9FF;margin-bottom:2px">🏦 الادخار هذا الشهر</div>';
   h+='<div style="font-size:18px;font-weight:900;color:#74B9FF">'+sv.toLocaleString()+' <span style="font-size:10px;color:#555">'+cur+'</span></div></div>';
-  if(!locked){
-    h+='<button onclick="openModal(\'savings\')" style="background:#2A2D3E;border:none;border-radius:9px;padding:6px 11px;color:#888;font-size:12px;cursor:pointer;font-family:Cairo,sans-serif">✏️ تعديل</button>';
-  } else if(isUnlocked()){
-    h+='<button onclick="openModal(\'savings\')" style="background:#2A2D3E;border:none;border-radius:9px;padding:6px 11px;color:#FFD166;font-size:12px;cursor:pointer;font-family:Cairo,sans-serif">✏️ تعديل</button>';
-  } else {
-    h+='<span style="font-size:20px;opacity:.4">🔒</span>';
-  }
+  if(!locked)h+='<button onclick="openModal(\'savings\')" style="background:#2A2D3E;border:none;border-radius:9px;padding:6px 11px;color:#888;font-size:12px;cursor:pointer;font-family:Cairo,sans-serif">✏️ تعديل</button>';
+  else if(isUnlocked())h+='<button onclick="openModal(\'savings\')" style="background:#2A2D3E;border:none;border-radius:9px;padding:6px 11px;color:#FFD166;font-size:12px;cursor:pointer;font-family:Cairo,sans-serif">✏️ تعديل</button>';
+  else h+='<span style="font-size:20px;opacity:.4">🔒</span>';
   h+='</div>';
-  if(sv>0){
-    var ac=afsv>=0?"#06D6A0":"#FF6B6B";
-    h+='<div class="row" style="margin-top:8px;font-size:12px"><span style="color:#666">المتبقي بعد الادخار</span><span style="font-weight:800;color:'+ac+'">'+(afsv>=0?"+":"")+afsv.toLocaleString()+' '+cur+'</span></div>';
-  }
-  if(totalSavings>0){
-    h+='<div style="margin-top:8px;background:#0d2233;border-radius:8px;padding:7px 12px;display:flex;justify-content:space-between;align-items:center">';
-    h+='<span style="font-size:11px;color:#5599bb">💰 مجموع المدخرات الكلي</span>';
-    h+='<span style="font-size:14px;font-weight:900;color:#74B9FF">'+totalSavings.toLocaleString()+' <span style="font-size:9px;color:#555">'+cur+'</span></span></div>';
-  }
-  if(surp>0&&!sv&&!locked) h+='<div style="font-size:10px;color:#555;margin-top:6px">لديك فائض '+surp.toLocaleString()+' '+cur+' — يمكنك ادخار جزء منه 💡</div>';
+  if(sv>0){var ac=afsv>=0?"#06D6A0":"#FF6B6B";h+='<div class="row" style="margin-top:8px;font-size:12px"><span style="color:#666">المتبقي بعد الادخار</span><span style="font-weight:800;color:'+ac+'">'+(afsv>=0?"+":"")+afsv.toLocaleString()+' '+cur+'</span></div>';}
+  if(totalSavings>0){h+='<div style="margin-top:8px;background:#0d2233;border-radius:8px;padding:7px 12px;display:flex;justify-content:space-between;align-items:center"><span style="font-size:11px;color:#5599bb">💰 مجموع المدخرات الكلي</span><span style="font-size:14px;font-weight:900;color:#74B9FF">'+totalSavings.toLocaleString()+' <span style="font-size:9px;color:#555">'+cur+'</span></span></div>';}
+  if(surp>0&&!sv&&!locked)h+='<div style="font-size:10px;color:#555;margin-top:6px">لديك فائض '+surp.toLocaleString()+' '+cur+' — يمكنك ادخار جزء منه 💡</div>';
   h+='</div></div></div>';
 
-  // ── TABS
   h+='<div style="display:flex;border-bottom:1px solid #1E2030;background:#0F1117;position:sticky;top:0;z-index:10">';
   h+='<button class="tab'+(curTab==="charges"?" on":"")+'" onclick="setTab(\'charges\')">📤 المصاريف ('+md.charges.length+')</button>';
   h+='<button class="tab'+(curTab==="income"?" on":"")+'" onclick="setTab(\'income\')">💰 الدخل ('+md.incomes.length+')</button>';
   h+='<button class="tab'+(curTab==="settings"?" on":"")+'" onclick="setTab(\'settings\')">⚙️ إعدادات</button>';
   h+='</div>';
-
   h+='<div style="padding:12px 20px">';
 
-  // ── CHARGES TAB
   if(curTab==="charges"){
-    if(!locked||isUnlocked()){
-      h+='<button onclick="openModal(\'addCharge\')" style="width:100%;background:#1E2030;border:1.5px dashed '+(isUnlocked()&&locked?"#FFD16688":"#B8B5FF55")+';border-radius:13px;padding:11px;color:'+(isUnlocked()&&locked?"#FFD166":"#B8B5FF")+';font-size:13px;cursor:pointer;font-family:Cairo,sans-serif;margin-bottom:10px">+ إضافة مصروف</button>';
-    }
+    if(!locked||isUnlocked()){h+='<button onclick="openModal(\'addCharge\')" style="width:100%;background:#1E2030;border:1.5px dashed '+(isUnlocked()&&locked?"#FFD16688":"#B8B5FF55")+';border-radius:13px;padding:11px;color:'+(isUnlocked()&&locked?"#FFD166":"#B8B5FF")+';font-size:13px;cursor:pointer;font-family:Cairo,sans-serif;margin-bottom:10px">+ إضافة مصروف</button>';}
     var sorted=md.charges.slice().sort(function(a,b){return b.amount-a.amount;});
     var effectiveLock=locked&&!isUnlocked();
-    sorted.forEach(function(c){ h+=itemRow(c,cur,true,effectiveLock); });
+    sorted.forEach(function(c){h+=itemRow(c,cur,true,effectiveLock);});
   }
-
-  // ── INCOME TAB
   if(curTab==="income"){
-    if(!locked||isUnlocked()){
-      h+='<button onclick="openModal(\'addIncome\')" style="width:100%;background:#1E2030;border:1.5px dashed #06D6A055;border-radius:13px;padding:11px;color:#06D6A0;font-size:13px;cursor:pointer;font-family:Cairo,sans-serif;margin-bottom:10px">+ إضافة مصدر دخل</button>';
-    }
+    if(!locked||isUnlocked()){h+='<button onclick="openModal(\'addIncome\')" style="width:100%;background:#1E2030;border:1.5px dashed #06D6A055;border-radius:13px;padding:11px;color:#06D6A0;font-size:13px;cursor:pointer;font-family:Cairo,sans-serif;margin-bottom:10px">+ إضافة مصدر دخل</button>';}
     var effectiveLockI=locked&&!isUnlocked();
-    md.incomes.forEach(function(i){ h+=itemRow(i,cur,false,effectiveLockI); });
-    h+='<div style="background:#0a1f0a;border-radius:13px;padding:10px 14px;border:1px solid #06D6A022;margin-top:6px">';
-    h+='<div class="row"><span style="color:#888;font-size:13px">إجمالي الدخل</span><span style="font-weight:800;color:#06D6A0;font-size:14px">'+tInc.toLocaleString()+' '+cur+'</span></div></div>';
+    md.incomes.forEach(function(i){h+=itemRow(i,cur,false,effectiveLockI);});
+    h+='<div style="background:#0a1f0a;border-radius:13px;padding:10px 14px;border:1px solid #06D6A022;margin-top:6px"><div class="row"><span style="color:#888;font-size:13px">إجمالي الدخل</span><span style="font-weight:800;color:#06D6A0;font-size:14px">'+tInc.toLocaleString()+' '+cur+'</span></div></div>';
   }
-
-  // ── SETTINGS TAB
   if(curTab==="settings"){
     h+='<div class="card"><div style="font-size:11px;color:#444;margin-bottom:9px">العملة</div><div style="display:flex;flex-wrap:wrap;gap:7px">';
-    CURRS.forEach(function(c){
-      var sel=APP.currency===c;
-      var st=sel?'border:1.5px solid #B8B5FF;color:#B8B5FF;background:#B8B5FF15':'';
-      h+='<span id="cur_'+c+'" onclick="selCur(this)" data-c="'+c+'" style="display:inline-block;padding:5px 13px;border-radius:99px;font-size:11px;cursor:pointer;'+st+'">'+c+'</span>';
-    });
+    CURRS.forEach(function(c){var sel=APP.currency===c;var st=sel?'border:1.5px solid #B8B5FF;color:#B8B5FF;background:#B8B5FF15':'';h+='<span onclick="selCur(this)" data-c="'+c+'" style="display:inline-block;padding:5px 13px;border-radius:99px;font-size:11px;cursor:pointer;'+st+'">'+c+'</span>';});
     h+='</div></div>';
-
-    // Lock + Password management card
     var hasPwd=!!getPwd();
     var dayNow=new Date().getDate();
     var daysLeft=dayNow<27?27-dayNow:0;
-    h+='<div class="card" style="border:1px solid #FF6B6B22">';
-    h+='<div style="font-size:11px;color:#FF8B94;margin-bottom:8px;font-weight:700">🔒 نظام قفل الشهر السابق</div>';
-    if(daysLeft>0){
-      h+='<div style="font-size:12px;color:#666;line-height:1.8;margin-bottom:10px">الشهر السابق مفتوح للتعديل<br><span style="color:#FFD166">يُقفل بعد <b style="color:#fff">'+daysLeft+' يوم</b> (منتصف ليل 27)</span></div>';
-    } else {
-      h+='<div style="font-size:12px;color:#666;line-height:1.8;margin-bottom:10px">الشهر السابق <span style="color:#FF6B6B;font-weight:700">مقفل الآن 🔒</span></div>';
-    }
-    h+='<div style="border-top:1px solid #2A2D3E;padding-top:10px">';
-    h+='<div style="font-size:11px;color:#888;margin-bottom:8px">🔑 كلمة مرور فتح القفل</div>';
-    if(!hasPwd){
-      h+='<button onclick="openPwdModal(\'set\')" style="width:100%;background:#1E2030;border:1.5px dashed #B8B5FF55;border-radius:11px;padding:10px;color:#B8B5FF;font-size:12px;cursor:pointer;font-family:Cairo,sans-serif">+ تعيين كلمة مرور</button>';
-      h+='<div style="font-size:10px;color:#444;margin-top:6px">بدون كلمة مرور: الشهر المقفل يظل مغلقاً تماماً</div>';
-    } else {
-      h+='<div style="display:flex;gap:8px;margin-bottom:7px">';
-      h+='<button onclick="openPwdModal(\'change\')" style="flex:1;background:#1E2030;border:1.5px solid #B8B5FF33;border-radius:11px;padding:9px;color:#B8B5FF;font-size:11px;cursor:pointer;font-family:Cairo,sans-serif">✏️ تغيير</button>';
-      h+='<button onclick="openPwdModal(\'remove\')" style="flex:1;background:#1E2030;border:1.5px solid #FF6B6B33;border-radius:11px;padding:9px;color:#FF6B6B;font-size:11px;cursor:pointer;font-family:Cairo,sans-serif">🗑️ إزالة</button>';
-      if(isUnlocked()){ h+='<button onclick="reLockNow()" style="flex:1;background:#FF6B6B15;border:1.5px solid #FF6B6B44;border-radius:11px;padding:9px;color:#FF8B94;font-size:11px;cursor:pointer;font-family:Cairo,sans-serif">🔒 إعادة قفل</button>'; }
-      h+='</div>';
-      h+='<div style="font-size:10px;color:#444">✓ كلمة المرور مضبوطة — تُطلب عند محاولة تعديل الشهر المقفل</div>';
-    }
+    h+='<div class="card" style="border:1px solid #FF6B6B22"><div style="font-size:11px;color:#FF8B94;margin-bottom:8px;font-weight:700">🔒 نظام قفل الشهر السابق</div>';
+    if(daysLeft>0){h+='<div style="font-size:12px;color:#666;line-height:1.8;margin-bottom:10px">الشهر السابق مفتوح للتعديل<br><span style="color:#FFD166">يُقفل بعد <b style="color:#fff">'+daysLeft+' يوم</b> (منتصف ليل 27)</span></div>';}
+    else{h+='<div style="font-size:12px;color:#666;line-height:1.8;margin-bottom:10px">الشهر السابق <span style="color:#FF6B6B;font-weight:700">مقفل الآن 🔒</span></div>';}
+    h+='<div style="border-top:1px solid #2A2D3E;padding-top:10px"><div style="font-size:11px;color:#888;margin-bottom:8px">🔑 كلمة مرور فتح القفل</div>';
+    if(!hasPwd){h+='<button onclick="openPwdModal(\'set\')" style="width:100%;background:#1E2030;border:1.5px dashed #B8B5FF55;border-radius:11px;padding:10px;color:#B8B5FF;font-size:12px;cursor:pointer;font-family:Cairo,sans-serif">+ تعيين كلمة مرور</button><div style="font-size:10px;color:#444;margin-top:6px">بدون كلمة مرور: الشهر المقفل يظل مغلقاً تماماً</div>';}
+    else{h+='<div style="display:flex;gap:8px;margin-bottom:7px"><button onclick="openPwdModal(\'change\')" style="flex:1;background:#1E2030;border:1.5px solid #B8B5FF33;border-radius:11px;padding:9px;color:#B8B5FF;font-size:11px;cursor:pointer;font-family:Cairo,sans-serif">✏️ تغيير</button><button onclick="openPwdModal(\'remove\')" style="flex:1;background:#1E2030;border:1.5px solid #FF6B6B33;border-radius:11px;padding:9px;color:#FF6B6B;font-size:11px;cursor:pointer;font-family:Cairo,sans-serif">🗑️ إزالة</button>';
+    if(isUnlocked())h+='<button onclick="reLockNow()" style="flex:1;background:#FF6B6B15;border:1.5px solid #FF6B6B44;border-radius:11px;padding:9px;color:#FF8B94;font-size:11px;cursor:pointer;font-family:Cairo,sans-serif">🔒 إعادة قفل</button>';
+    h+='</div><div style="font-size:10px;color:#444">✓ كلمة المرور مضبوطة — تُطلب عند محاولة تعديل الشهر المقفل</div>';}
     h+='</div></div>';
-
     h+='<div class="card"><div style="font-size:11px;color:#444;margin-bottom:10px">ملخص الأشهر</div>';
     var nowIdx=ALL.indexOf(now);
     var rangeStart=ALL[Math.max(0,nowIdx-4)];
     var rangeEnd=ALL[Math.min(ALL.length-1,nowIdx+4)];
-    var filteredMonths=Object.keys(APP.months).sort().filter(function(mk){ return mk>=rangeStart&&mk<=rangeEnd; });
-    if(filteredMonths.length===0){
-      h+='<div style="font-size:11px;color:#555;text-align:center;padding:10px">لا توجد بيانات في هذه الفترة</div>';
-    } else {
-      filteredMonths.forEach(function(mk){
-        var mm=APP.months[mk];
-        var ti=mm.incomes.reduce(function(s,i){return s+i.amount;},0);
-        var tc=mm.charges.reduce(function(s,c){return s+c.amount;},0);
-        var sv2=mm.savings||0;
-        var b=ti-tc;
-        var isNow=mk===now;
-        var isLk=isMonthLocked(mk);
-        h+='<div class="row" style="font-size:12px;margin-bottom:6px;padding:6px 8px;border-bottom:1px solid #2A2D3E;border-radius:8px;background:'+(isNow?"#B8B5FF08":"transparent")+'">';
-        h+='<div style="display:flex;align-items:center;gap:6px"><span style="color:'+(isNow?"#B8B5FF":"#888")+'">'+mshort(mk)+'</span>';
-        if(isNow) h+='<span style="font-size:9px;background:#B8B5FF22;color:#B8B5FF;border-radius:99px;padding:1px 6px">الآن</span>';
-        if(isLk) h+='<span style="font-size:10px;opacity:.5">🔒</span>';
-        h+='</div>';
-        h+='<div style="display:flex;align-items:center;gap:10px">';
-        if(sv2>0) h+='<span style="font-size:11px;color:#74B9FF">🏦'+sv2.toLocaleString()+'</span>';
-        h+='<span style="font-weight:700;color:'+(b>=0?"#06D6A0":"#FF6B6B")+'">'+(b>=0?"+":"")+b.toLocaleString()+'</span></div></div>';
-      });
-    }
+    var filteredMonths=Object.keys(APP.months).sort().filter(function(mk){return mk>=rangeStart&&mk<=rangeEnd;});
+    if(filteredMonths.length===0){h+='<div style="font-size:11px;color:#555;text-align:center;padding:10px">لا توجد بيانات في هذه الفترة</div>';}
+    else{filteredMonths.forEach(function(mk){var mm=APP.months[mk];var ti=mm.incomes.reduce(function(s,i){return s+i.amount;},0);var tc=mm.charges.reduce(function(s,c){return s+c.amount;},0);var sv2=mm.savings||0;var b=ti-tc;var isNow=mk===now;var isLk=isMonthLocked(mk);h+='<div class="row" style="font-size:12px;margin-bottom:6px;padding:6px 8px;border-bottom:1px solid #2A2D3E;border-radius:8px;background:'+(isNow?"#B8B5FF08":"transparent")+'"><div style="display:flex;align-items:center;gap:6px"><span style="color:'+(isNow?"#B8B5FF":"#888")+'">'+mshort(mk)+'</span>';if(isNow)h+='<span style="font-size:9px;background:#B8B5FF22;color:#B8B5FF;border-radius:99px;padding:1px 6px">الآن</span>';if(isLk)h+='<span style="font-size:10px;opacity:.5">🔒</span>';h+='</div><div style="display:flex;align-items:center;gap:10px">';if(sv2>0)h+='<span style="font-size:11px;color:#74B9FF">🏦'+sv2.toLocaleString()+'</span>';h+='<span style="font-weight:700;color:'+(b>=0?"#06D6A0":"#FF6B6B")+'">'+(b>=0?"+":"")+b.toLocaleString()+'</span></div></div>';});}
     h+='</div>';
-    // ── NOTIFICATIONS CARD
     var notifSupported=('Notification' in window);
     var notifGranted=notifSupported&&Notification.permission==="granted";
     var notifDenied=notifSupported&&Notification.permission==="denied";
     var nOn=localStorage.getItem("masarifi_notif")==="1";
     var nInterval=parseInt(localStorage.getItem("masarifi_notif_interval")||"60");
-    var intervalOptions=[
-      {val:15,  label:"كل 15 دقيقة"},
-      {val:30,  label:"كل 30 دقيقة"},
-      {val:60,  label:"كل ساعة"},
-      {val:120, label:"كل ساعتين"},
-      {val:180, label:"كل 3 ساعات"},
-      {val:360, label:"كل 6 ساعات"}
-    ];
-    h+='<div class="card" style="border:1px solid #B8B5FF22">';
-    h+='<div style="font-size:11px;color:#B8B5FF;margin-bottom:8px;font-weight:700">🔔 تذكير المصاريف غير المدفوعة</div>';
-    if(!notifSupported){
-      h+='<div style="font-size:11px;color:#555">المتصفح لا يدعم الإشعارات</div>';
-    } else if(notifDenied){
-      h+='<div style="font-size:11px;color:#FF8B94;line-height:1.7">تم رفض الإشعارات ✗<br><span style="color:#555">أعد تفعيلها من إعدادات المتصفح يدوياً</span></div>';
-    } else if(!notifGranted){
-      h+='<div style="font-size:11px;color:#666;margin-bottom:10px;line-height:1.7">تذكير دوري بالمصاريف غير المدفوعة للشهر الحالي، طالما التطبيق مفتوح</div>';
-      h+='<button onclick="enableNotifs()" style="width:100%;background:#B8B5FF15;border:1.5px solid #B8B5FF44;border-radius:12px;padding:11px;color:#B8B5FF;font-size:13px;font-weight:700;cursor:pointer;font-family:Cairo,sans-serif">🔔 تفعيل التذكيرات</button>';
-    } else {
-      // Toggle row
-      h+='<div class="row" style="margin-bottom:12px">';
-      h+='<span style="font-size:12px;color:#888">تفعيل التذكيرات</span>';
-      h+='<button onclick="toggleNotifs()" style="background:'+(nOn?"#06D6A0":"#2A2D3E")+';border:none;border-radius:99px;width:48px;height:26px;cursor:pointer;position:relative;transition:background .3s">';
-      h+='<span style="position:absolute;top:3px;'+(nOn?"left:3px":"right:3px")+';width:20px;height:20px;background:#fff;border-radius:99px;display:block;transition:all .3s"></span></button>';
-      h+='</div>';
-      // Interval selector — always visible
-      h+='<div style="font-size:11px;color:#666;margin-bottom:8px">⏱️ فترة التذكير</div>';
-      h+='<div style="display:flex;flex-wrap:wrap;gap:7px;margin-bottom:10px">';
-      intervalOptions.forEach(function(opt){
-        var sel=nInterval===opt.val;
-        h+='<button onclick="setNotifInterval('+opt.val+')" style="background:'+(sel?"#B8B5FF22":"#1E2030")+';border:1.5px solid '+(sel?"#B8B5FF":"#2A2D3E")+';border-radius:99px;padding:5px 12px;font-size:11px;color:'+(sel?"#B8B5FF":"#666")+';cursor:pointer;font-family:Cairo,sans-serif;font-weight:'+(sel?"700":"400")+'">'+(sel?"✓ ":"")+opt.label+'</button>';
-      });
-      h+='</div>';
-      if(nOn){
-        var selLabel=intervalOptions.find(function(o){return o.val===nInterval;})||intervalOptions[2];
-        h+='<div style="font-size:10px;color:#06D6A0">✓ مفعّل — تذكير '+selLabel.label+' طالما التطبيق مفتوح</div>';
-      } else {
-        h+='<div style="font-size:10px;color:#555">موقوف — فعّل المفتاح لبدء التذكيرات</div>';
-      }
-    }
+    var intervalOptions=[{val:15,label:"كل 15 دقيقة"},{val:30,label:"كل 30 دقيقة"},{val:60,label:"كل ساعة"},{val:120,label:"كل ساعتين"},{val:180,label:"كل 3 ساعات"},{val:360,label:"كل 6 ساعات"}];
+    h+='<div class="card" style="border:1px solid #B8B5FF22"><div style="font-size:11px;color:#B8B5FF;margin-bottom:8px;font-weight:700">🔔 تذكير المصاريف غير المدفوعة</div>';
+    if(!notifSupported){h+='<div style="font-size:11px;color:#555">المتصفح لا يدعم الإشعارات</div>';}
+    else if(notifDenied){h+='<div style="font-size:11px;color:#FF8B94;line-height:1.7">تم رفض الإشعارات ✗<br><span style="color:#555">أعد تفعيلها من إعدادات المتصفح يدوياً</span></div>';}
+    else if(!notifGranted){h+='<div style="font-size:11px;color:#666;margin-bottom:10px;line-height:1.7">تذكير دوري بالمصاريف غير المدفوعة للشهر الحالي، طالما التطبيق مفتوح</div><button onclick="enableNotifs()" style="width:100%;background:#B8B5FF15;border:1.5px solid #B8B5FF44;border-radius:12px;padding:11px;color:#B8B5FF;font-size:13px;font-weight:700;cursor:pointer;font-family:Cairo,sans-serif">🔔 تفعيل التذكيرات</button>';}
+    else{h+='<div class="row" style="margin-bottom:12px"><span style="font-size:12px;color:#888">تفعيل التذكيرات</span><button onclick="toggleNotifs()" style="background:'+(nOn?"#06D6A0":"#2A2D3E")+';border:none;border-radius:99px;width:48px;height:26px;cursor:pointer;position:relative;transition:background .3s"><span style="position:absolute;top:3px;'+(nOn?"left:3px":"right:3px")+';width:20px;height:20px;background:#fff;border-radius:99px;display:block;transition:all .3s"></span></button></div>';
+    h+='<div style="font-size:11px;color:#666;margin-bottom:8px">⏱️ فترة التذكير</div><div style="display:flex;flex-wrap:wrap;gap:7px;margin-bottom:10px">';
+    intervalOptions.forEach(function(opt){var sel=nInterval===opt.val;h+='<button onclick="setNotifInterval('+opt.val+')" style="background:'+(sel?"#B8B5FF22":"#1E2030")+';border:1.5px solid '+(sel?"#B8B5FF":"#2A2D3E")+';border-radius:99px;padding:5px 12px;font-size:11px;color:'+(sel?"#B8B5FF":"#666")+';cursor:pointer;font-family:Cairo,sans-serif;font-weight:'+(sel?"700":"400")+'">'+(sel?"✓ ":"")+opt.label+'</button>';});
+    h+='</div>';var selLabel=intervalOptions.find(function(o){return o.val===nInterval;})||intervalOptions[2];
+    if(nOn)h+='<div style="font-size:10px;color:#06D6A0">✓ مفعّل — تذكير '+selLabel.label+' طالما التطبيق مفتوح</div>';else h+='<div style="font-size:10px;color:#555">موقوف — فعّل المفتاح لبدء التذكيرات</div>';}
     h+='</div>';
     h+='<div class="card"><div style="font-size:11px;color:#444;margin-bottom:10px">💾 النسخ الاحتياطي</div>';
     h+='<div style="font-size:11px;color:#555;margin-bottom:10px;line-height:1.7">بياناتك على هاتفك فقط ✅<br>لا ترسل لأي خادم 🔒<br>نسخة احتياطية تلقائية كل شهر</div>';
@@ -501,7 +637,6 @@ function page(){
     h+='<button onclick="openModal(\'confirmClear\')" style="width:100%;background:#FF6B6B15;border:1.5px solid #FF6B6B33;border-radius:13px;padding:12px;color:#FF6B6B;font-size:13px;font-weight:700;cursor:pointer;font-family:Cairo,sans-serif">🗑️ مسح جميع البيانات</button>';
     h+='</div>';
   }
-
   h+='</div>';
   h+=buildModal();
   return h;
@@ -512,16 +647,12 @@ function itemRow(item,cur,showPaid,locked){
   var h='<div class="irow" style="background:'+(showPaid&&item.paid?"#0d1f0d":"#1E2030")+';opacity:'+(showPaid&&item.paid?.75:1)+';border-right:3px solid '+(showPaid&&item.paid?"#06D6A0":item.color)+'">';
   h+='<div style="display:flex;align-items:center;gap:8px;flex:1">';
   if(showPaid){
-    if(!locked){
-      h+='<button onclick="togglePaid(\''+item.id+'\')" style="background:'+(item.paid?"#06D6A033":"transparent")+';border:2px solid '+(item.paid?"#06D6A0":"#333")+';border-radius:99px;width:26px;height:26px;cursor:pointer;color:#06D6A0;font-size:13px;flex-shrink:0">'+(item.paid?"✓":"")+'</button>';
-    } else {
-      // Read-only checkmark display
-      h+='<div style="border:2px solid #333;border-radius:99px;width:26px;height:26px;display:flex;align-items:center;justify-content:center;color:#06D6A0;font-size:13px;flex-shrink:0;opacity:.5">'+(item.paid?"✓":"")+'</div>';
-    }
+    if(!locked){h+='<button onclick="togglePaid(\''+item.id+'\')" style="background:'+(item.paid?"#06D6A033":"transparent")+';border:2px solid '+(item.paid?"#06D6A0":"#333")+';border-radius:99px;width:26px;height:26px;cursor:pointer;color:#06D6A0;font-size:13px;flex-shrink:0">'+(item.paid?"✓":"")+'</button>';}
+    else{h+='<div style="border:2px solid #333;border-radius:99px;width:26px;height:26px;display:flex;align-items:center;justify-content:center;color:#06D6A0;font-size:13px;flex-shrink:0;opacity:.5">'+(item.paid?"✓":"")+'</div>';}
   }
   h+='<span style="font-size:18px">'+item.icon+'</span>';
   h+='<div><div style="font-size:13px;color:'+(showPaid&&item.paid?"#555":"#ccc")+';text-decoration:'+(showPaid&&item.paid?"line-through":"none")+'">'+item.label+'</div>';
-  if(showPaid&&item.paid) h+='<div style="font-size:10px;color:#06D6A0">✓ مدفوع'+(item.paidAt?' — <span style="color:#3a7a5a">'+item.paidAt+'</span>':'')+'</div>';
+  if(showPaid&&item.paid)h+='<div style="font-size:10px;color:#06D6A0">✓ مدفوع'+(item.paidAt?' — <span style="color:#3a7a5a">'+item.paidAt+'</span>':'')+'</div>';
   h+='</div></div>';
   h+='<div style="display:flex;align-items:center;gap:7px">';
   h+='<span style="font-size:14px;font-weight:800;color:'+(showPaid&&item.paid?"#444":item.color)+'">'+item.amount.toLocaleString()+' '+cur+'</span>';
@@ -538,39 +669,32 @@ function itemRow(item,cur,showPaid,locked){
 // ── NUMPAD ────────────────────────────────────────────────
 function numpad(){
   var h='<div class="numpad">';
-  ["1","2","3","4","5","6","7","8","9",".","0","⌫"].forEach(function(k){
-    h+='<button class="nk'+(k==="⌫"?" del":"")+'" onclick="nkPress(\''+k+'\')">'+k+'</button>';
-  });
+  ["1","2","3","4","5","6","7","8","9",".","0","⌫"].forEach(function(k){h+='<button class="nk'+(k==="⌫"?" del":"")+'" onclick="nkPress(\''+k+'\')">'+k+'</button>';});
   h+='</div>';
   return h;
 }
 
-// ── MODAL ─────────────────────────────────────────────────
+// ── BUDGET MODAL ──────────────────────────────────────────
 function buildModal(){
-  if(!modal) return "";
+  if(!modal)return"";
   var h='<div class="modal-bg" onclick="bgClick(event)"><div class="modal">';
   h+='<div class="row" style="margin-bottom:16px">';
 
   if(modal==="savings"){
-    var md=gm(curM);
-    var surp=md.incomes.reduce(function(s,i){return s+i.amount;},0)-md.charges.reduce(function(s,c){return s+c.amount;},0);
-    h+='<span style="font-size:16px;font-weight:800">🏦 الادخار الشهري</span>';
-    h+='<button onclick="closeModal()" style="background:#1E2030;border:none;border-radius:99px;width:30px;height:30px;color:#888;cursor:pointer;font-size:16px">✕</button></div>';
+    var md=gm(curM);var surp=md.incomes.reduce(function(s,i){return s+i.amount;},0)-md.charges.reduce(function(s,c){return s+c.amount;},0);
+    h+='<span style="font-size:16px;font-weight:800">🏦 الادخار الشهري</span><button onclick="closeModal()" style="background:#1E2030;border:none;border-radius:99px;width:30px;height:30px;color:#888;cursor:pointer;font-size:16px">✕</button></div>';
     h+='<div style="font-size:11px;color:#666;margin-bottom:6px">الفائض: <span style="color:#06D6A0;font-weight:700">'+Math.max(0,surp).toLocaleString()+' '+APP.currency+'</span></div>';
     h+='<div style="font-size:36px;font-weight:900;color:'+(numVal?"#74B9FF":"#333")+';text-align:center;margin-bottom:10px">'+(numVal||"0")+' <span style="font-size:13px;color:#555">'+APP.currency+'</span></div>';
-    h+=numpad();
-    h+='<button onclick="saveSavings()" class="btn-main">حفظ الادخار</button>';
+    h+=numpad();h+='<button onclick="saveSavings()" class="btn-main">حفظ الادخار</button>';
   }
-
   else if(modal==="addCharge"||modal==="addIncome"){
-    h+='<span style="font-size:16px;font-weight:800">'+(modal==="addCharge"?"إضافة مصروف":"إضافة مصدر دخل")+'</span>';
-    h+='<button onclick="closeModal()" style="background:#1E2030;border:none;border-radius:99px;width:30px;height:30px;color:#888;cursor:pointer;font-size:16px">✕</button></div>';
+    h+='<span style="font-size:16px;font-weight:800">'+(modal==="addCharge"?"إضافة مصروف":"إضافة مصدر دخل")+'</span><button onclick="closeModal()" style="background:#1E2030;border:none;border-radius:99px;width:30px;height:30px;color:#888;cursor:pointer;font-size:16px">✕</button></div>';
     if(numStep==="info"){
       h+='<label class="lbl">الاسم</label><input id="nlbl" class="inp" type="text" placeholder="مثل: Diesel، Assurance..." value="'+numLabel+'" oninput="numLabel=this.value"/>';
       h+='<label class="lbl">الأيقونة</label><div style="display:flex;flex-wrap:wrap;gap:6px;margin-bottom:12px">';
-      ICONS.forEach(function(ic){ h+='<button onclick="setIcon(\''+ic+'\')" style="background:'+(numIcon===ic?"#B8B5FF22":"#1E2030")+';border:2px solid '+(numIcon===ic?"#B8B5FF":"transparent")+';border-radius:9px;padding:7px 9px;font-size:19px;cursor:pointer">'+ic+'</button>'; });
+      ICONS.forEach(function(ic){h+='<button onclick="setIcon(\''+ic+'\')" style="background:'+(numIcon===ic?"#B8B5FF22":"#1E2030")+';border:2px solid '+(numIcon===ic?"#B8B5FF":"transparent")+';border-radius:9px;padding:7px 9px;font-size:19px;cursor:pointer">'+ic+'</button>';});
       h+='</div><label class="lbl">اللون</label><div style="display:flex;gap:7px;flex-wrap:wrap;margin-bottom:18px">';
-      COLS.forEach(function(c){ h+='<button onclick="setCol(\''+c+'\')" style="width:30px;height:30px;border-radius:99px;background:'+c+';border:'+(numCol===c?"3px solid #fff":"3px solid transparent")+';cursor:pointer"></button>'; });
+      COLS.forEach(function(c){h+='<button onclick="setCol(\''+c+'\')" style="width:30px;height:30px;border-radius:99px;background:'+c+';border:'+(numCol===c?"3px solid #fff":"3px solid transparent")+';cursor:pointer"></button>';});
       h+='</div><button onclick="nextStep()" class="btn-main">التالي ←</button>';
     } else {
       h+='<div style="text-align:center;margin-bottom:8px"><span style="font-size:22px">'+numIcon+'</span> <span style="color:#888;font-size:13px">'+numLabel+'</span></div>';
@@ -580,392 +704,136 @@ function buildModal(){
       h+='<button onclick="prevStep()" style="width:100%;background:none;border:none;color:#555;font-size:13px;cursor:pointer;font-family:Cairo,sans-serif;padding:8px">← رجوع</button>';
     }
   }
-
   else if(modal==="editItem"){
-    h+='<span style="font-size:16px;font-weight:800">✏️ تعديل</span>';
-    h+='<button onclick="closeModal()" style="background:#1E2030;border:none;border-radius:99px;width:30px;height:30px;color:#888;cursor:pointer;font-size:16px">✕</button></div>';
+    h+='<span style="font-size:16px;font-weight:800">✏️ تعديل</span><button onclick="closeModal()" style="background:#1E2030;border:none;border-radius:99px;width:30px;height:30px;color:#888;cursor:pointer;font-size:16px">✕</button></div>';
     h+='<label class="lbl">الاسم</label><input id="nlbl" class="inp" type="text" value="'+numLabel+'" oninput="numLabel=this.value"/>';
     h+='<div style="font-size:36px;font-weight:900;color:'+(numVal?"#fff":"#333")+';text-align:center;margin-bottom:10px">'+(numVal||"0")+' <span style="font-size:13px;color:#555">'+APP.currency+'</span></div>';
-    h+=numpad();
-    h+='<button onclick="saveEdit()" class="btn-main">حفظ التعديل ✓</button>';
+    h+=numpad();h+='<button onclick="saveEdit()" class="btn-main">حفظ التعديل ✓</button>';
   }
-
   else if(modal==="import"){
-    h+='<span style="font-size:16px;font-weight:800">📥 استيراد نسخة احتياطية</span>';
-    h+='<button onclick="closeModal()" style="background:#1E2030;border:none;border-radius:99px;width:30px;height:30px;color:#888;cursor:pointer;font-size:16px">✕</button></div>';
+    h+='<span style="font-size:16px;font-weight:800">📥 استيراد نسخة احتياطية</span><button onclick="closeModal()" style="background:#1E2030;border:none;border-radius:99px;width:30px;height:30px;color:#888;cursor:pointer;font-size:16px">✕</button></div>';
     h+='<div style="font-size:12px;color:#888;margin-bottom:16px;line-height:1.7">اختر ملف <b style="color:#FFD166">.json</b> من جهازك لاستعادة بياناتك</div>';
-    h+='<label for="jsonFile" style="display:flex;flex-direction:column;align-items:center;justify-content:center;gap:10px;background:#1E2030;border:2px dashed #FFD16655;border-radius:14px;padding:28px 16px;cursor:pointer;margin-bottom:14px">';
-    h+='<span style="font-size:36px">📂</span>';
-    h+='<span style="font-size:13px;color:#FFD166;font-weight:700">اضغط لاختيار الملف</span>';
-    h+='<span id="fileNameLabel" style="font-size:11px;color:#555">لم يتم اختيار ملف</span>';
-    h+='<input id="jsonFile" type="file" accept=".json,application/json" style="display:none" onchange="onFileChosen(this)"/>';
-    h+='</label>';
+    h+='<label for="jsonFile" style="display:flex;flex-direction:column;align-items:center;justify-content:center;gap:10px;background:#1E2030;border:2px dashed #FFD16655;border-radius:14px;padding:28px 16px;cursor:pointer;margin-bottom:14px"><span style="font-size:36px">📂</span><span style="font-size:13px;color:#FFD166;font-weight:700">اضغط لاختيار الملف</span><span id="fileNameLabel" style="font-size:11px;color:#555">لم يتم اختيار ملف</span><input id="jsonFile" type="file" accept=".json,application/json" style="display:none" onchange="onFileChosen(this)"/></label>';
     h+='<button onclick="doImportFile()" class="btn-main">استيراد البيانات ✓</button>';
   }
-
   else if(modal==="confirmClear"){
-    h+='<span style="font-size:16px;font-weight:800">⚠️ تأكيد الحذف</span>';
-    h+='<button onclick="closeModal()" style="background:#1E2030;border:none;border-radius:99px;width:30px;height:30px;color:#888;cursor:pointer;font-size:16px">✕</button></div>';
+    h+='<span style="font-size:16px;font-weight:800">⚠️ تأكيد الحذف</span><button onclick="closeModal()" style="background:#1E2030;border:none;border-radius:99px;width:30px;height:30px;color:#888;cursor:pointer;font-size:16px">✕</button></div>';
     h+='<div style="font-size:14px;color:#ccc;text-align:center;margin:20px 0;line-height:1.8">هل أنت متأكد؟<br><span style="color:#FF6B6B;font-weight:700">سيتم حذف جميع البيانات نهائياً</span></div>';
-    h+='<div style="display:flex;gap:10px">';
-    h+='<button onclick="doClear()" style="flex:1;background:#FF6B6B;border:none;border-radius:13px;padding:14px;color:#fff;font-size:15px;font-weight:800;cursor:pointer;font-family:Cairo,sans-serif">نعم، احذف</button>';
-    h+='<button onclick="closeModal()" style="flex:1;background:#1E2030;border:none;border-radius:13px;padding:14px;color:#888;font-size:15px;cursor:pointer;font-family:Cairo,sans-serif">إلغاء</button>';
-    h+='</div>';
+    h+='<div style="display:flex;gap:10px"><button onclick="doClear()" style="flex:1;background:#FF6B6B;border:none;border-radius:13px;padding:14px;color:#fff;font-size:15px;font-weight:800;cursor:pointer;font-family:Cairo,sans-serif">نعم، احذف</button><button onclick="closeModal()" style="flex:1;background:#1E2030;border:none;border-radius:13px;padding:14px;color:#888;font-size:15px;cursor:pointer;font-family:Cairo,sans-serif">إلغاء</button></div>';
   }
-
   else if(modal==="confirmDel"){
-    h+='<span style="font-size:16px;font-weight:800">🗑️ حذف العنصر</span>';
-    h+='<button onclick="closeModal()" style="background:#1E2030;border:none;border-radius:99px;width:30px;height:30px;color:#888;cursor:pointer;font-size:16px">✕</button></div>';
+    h+='<span style="font-size:16px;font-weight:800">🗑️ حذف العنصر</span><button onclick="closeModal()" style="background:#1E2030;border:none;border-radius:99px;width:30px;height:30px;color:#888;cursor:pointer;font-size:16px">✕</button></div>';
     h+='<div style="font-size:14px;color:#ccc;text-align:center;margin:20px 0">هل تريد حذف هذا العنصر؟</div>';
-    h+='<div style="display:flex;gap:10px">';
-    h+='<button onclick="doDelItem()" style="flex:1;background:#FF6B6B;border:none;border-radius:13px;padding:14px;color:#fff;font-size:15px;font-weight:800;cursor:pointer;font-family:Cairo,sans-serif">نعم، احذف</button>';
-    h+='<button onclick="closeModal()" style="flex:1;background:#1E2030;border:none;border-radius:13px;padding:14px;color:#888;font-size:15px;cursor:pointer;font-family:Cairo,sans-serif">إلغاء</button>';
-    h+='</div>';
+    h+='<div style="display:flex;gap:10px"><button onclick="doDelItem()" style="flex:1;background:#FF6B6B;border:none;border-radius:13px;padding:14px;color:#fff;font-size:15px;font-weight:800;cursor:pointer;font-family:Cairo,sans-serif">نعم، احذف</button><button onclick="closeModal()" style="flex:1;background:#1E2030;border:none;border-radius:13px;padding:14px;color:#888;font-size:15px;cursor:pointer;font-family:Cairo,sans-serif">إلغاء</button></div>';
   }
-
-  // ── PASSWORD MODAL ────────────────────────────────────────
   else if(modal==="pwd"){
-    var pTitle="", pSub="", pBtn="", pBtnFn="";
-    if(pwdMode==="unlock"){
-      pTitle="🔓 فتح الشهر المقفل"; pSub="أدخل كلمة المرور للمتابعة"; pBtn="فتح القفل"; pBtnFn="doPwdUnlock()";
-    } else if(pwdMode==="set"){
-      pTitle="🔑 تعيين كلمة مرور"; pSub="أدخل كلمة مرور جديدة (أرقام أو حروف)"; pBtn="حفظ كلمة المرور"; pBtnFn="doPwdSet()";
-    } else if(pwdMode==="change-old"){
-      pTitle="✏️ تغيير كلمة المرور"; pSub="أدخل كلمة المرور الحالية أولاً"; pBtn="تحقق"; pBtnFn="doPwdChangeVerify()";
-    } else if(pwdMode==="change-new"){
-      pTitle="✏️ كلمة المرور الجديدة"; pSub="أدخل كلمة المرور الجديدة"; pBtn="حفظ"; pBtnFn="doPwdChangeNew()";
-    } else if(pwdMode==="remove"){
-      pTitle="🗑️ إزالة كلمة المرور"; pSub="أدخل كلمة المرور الحالية للتأكيد"; pBtn="إزالة كلمة المرور"; pBtnFn="doPwdRemove()";
-    }
-    h+='<span style="font-size:16px;font-weight:800">'+pTitle+'</span>';
-    h+='<button onclick="closeModal()" style="background:#1E2030;border:none;border-radius:99px;width:30px;height:30px;color:#888;cursor:pointer;font-size:16px">✕</button></div>';
+    var pTitle="",pSub="",pBtn="",pBtnFn="";
+    if(pwdMode==="unlock"){pTitle="🔓 فتح الشهر المقفل";pSub="أدخل كلمة المرور للمتابعة";pBtn="فتح القفل";pBtnFn="doPwdUnlock()";}
+    else if(pwdMode==="set"){pTitle="🔑 تعيين كلمة مرور";pSub="أدخل كلمة مرور جديدة (أرقام أو حروف)";pBtn="حفظ كلمة المرور";pBtnFn="doPwdSet()";}
+    else if(pwdMode==="change-old"){pTitle="✏️ تغيير كلمة المرور";pSub="أدخل كلمة المرور الحالية أولاً";pBtn="تحقق";pBtnFn="doPwdChangeVerify()";}
+    else if(pwdMode==="change-new"){pTitle="✏️ كلمة المرور الجديدة";pSub="أدخل كلمة المرور الجديدة";pBtn="حفظ";pBtnFn="doPwdChangeNew()";}
+    else if(pwdMode==="remove"){pTitle="🗑️ إزالة كلمة المرور";pSub="أدخل كلمة المرور الحالية للتأكيد";pBtn="إزالة كلمة المرور";pBtnFn="doPwdRemove()";}
+    h+='<span style="font-size:16px;font-weight:800">'+pTitle+'</span><button onclick="closeModal()" style="background:#1E2030;border:none;border-radius:99px;width:30px;height:30px;color:#888;cursor:pointer;font-size:16px">✕</button></div>';
     h+='<div style="font-size:12px;color:#666;margin-bottom:14px">'+pSub+'</div>';
-    // Password display (dots)
-    var dots=pwdVal.split("").map(function(){ return "●"; }).join(" ");
+    var dots=pwdVal.split("").map(function(){return"●";}).join(" ");
     h+='<div style="font-size:28px;letter-spacing:6px;text-align:center;color:'+(pwdVal?"#B8B5FF":"#333")+';background:#1E2030;border-radius:12px;padding:14px;margin-bottom:12px;min-height:58px">'+(dots||'<span style="color:#333;font-size:16px;letter-spacing:0">اكتب هنا...</span>')+'</div>';
-    // Simple keyboard: digits + letters row + backspace
     h+='<div style="display:grid;grid-template-columns:repeat(3,1fr);gap:7px;margin-bottom:10px">';
-    ["1","2","3","4","5","6","7","8","9","⌫","0","✓"].forEach(function(k){
-      var isBk=k==="⌫", isOk=k==="✓";
-      var bg=isBk?"background:#FF6B6B22;border-color:#FF6B6B55;color:#FF6B6B":isOk?"background:linear-gradient(135deg,#B8B5FF,#8B5CF6);border-color:transparent;color:#fff":"background:#1E2030;border-color:#2A2D3E;color:#fff";
-      h+='<button style="border-radius:12px;padding:15px 0;font-size:19px;font-weight:700;cursor:pointer;border:1.5px solid #2A2D3E;font-family:Cairo,sans-serif;'+bg+'" onclick="pwdKey(\''+k+'\')">'+k+'</button>';
-    });
+    ["1","2","3","4","5","6","7","8","9","⌫","0","✓"].forEach(function(k){var isBk=k==="⌫",isOk=k==="✓";var bg=isBk?"background:#FF6B6B22;border-color:#FF6B6B55;color:#FF6B6B":isOk?"background:linear-gradient(135deg,#B8B5FF,#8B5CF6);border-color:transparent;color:#fff":"background:#1E2030;border-color:#2A2D3E;color:#fff";h+='<button style="border-radius:12px;padding:15px 0;font-size:19px;font-weight:700;cursor:pointer;border:1.5px solid #2A2D3E;font-family:Cairo,sans-serif;'+bg+'" onclick="pwdKey(\''+k+'\')">'+k+'</button>';});
     h+='</div>';
     h+='<button onclick="'+pBtnFn+'" class="btn-main">'+pBtn+'</button>';
   }
-
   h+='</div></div>';
   return h;
 }
 
-// ── BIND ──────────────────────────────────────────────────
-function bind(){}
-
-// ── ACTIONS ───────────────────────────────────────────────
-function setCurM(mk){
-  // Only allow switching to visible months
-  var vis=visibleMonths();
-  if(vis.indexOf(mk)===-1) return;
-  curM=mk; render();
-}
-function setTab(t){ curTab=t; render(); }
-function setCur(c){ APP.currency=c; save(); render(); }
-function selCur(el){ setCur(el.dataset.c); }
-
-function openModal(m){
-  if((m==="addCharge"||m==="addIncome"||m==="savings")&&guardLocked()) return;
-  modal=m; numVal=""; numStep="info"; render();
-}
-function closeModal(){ modal=null; render(); }
-function bgClick(e){ if(e.target===e.currentTarget){ modal=null; render(); } }
-
+// ── BUDGET ACTIONS ────────────────────────────────────────
+function setCurM(mk){var vis=visibleMonths();if(vis.indexOf(mk)===-1)return;curM=mk;render();}
+function setTab(t){curTab=t;render();}
+function setCur(c){APP.currency=c;save();render();}
+function selCur(el){setCur(el.dataset.c);}
+function openModal(m){if((m==="addCharge"||m==="addIncome"||m==="savings")&&guardLocked())return;modal=m;numVal="";numStep="info";render();}
+function closeModal(){modal=null;render();}
+function bgClick(e){if(e.target===e.currentTarget){modal=null;render();}}
 function togglePaid(id){
-  if(guardLocked()) return;
+  if(guardLocked())return;
   var md=gm(curM);
-  md.charges=md.charges.map(function(c){
-    if(c.id!==id) return c;
-    var nowPaid=!c.paid;
-    return Object.assign({},c,{
-      paid: nowPaid,
-      paidAt: nowPaid ? new Date().toLocaleString("ar-MA",{day:"2-digit",month:"2-digit",year:"numeric",hour:"2-digit",minute:"2-digit"}) : null
-    });
-  });
-  APP.months[curM]=md;
-  save();
-  render();
+  md.charges=md.charges.map(function(c){if(c.id!==id)return c;var nowPaid=!c.paid;return Object.assign({},c,{paid:nowPaid,paidAt:nowPaid?new Date().toLocaleString("ar-MA",{day:"2-digit",month:"2-digit",year:"numeric",hour:"2-digit",minute:"2-digit"}):null});});
+  APP.months[curM]=md;save();render();
 }
-
-function nkPress(k){
-  if(k==="⌫"){ numVal=numVal.slice(0,-1); }
-  else if(k==="."&&numVal.includes(".")){ return; }
-  else if(numVal.length>=9){ return; }
-  else{ numVal+=k; }
-  render();
-}
-
-function setIcon(ic){ numIcon=ic; render(); }
-function setCol(c){ numCol=c; render(); }
-
-function nextStep(){
-  if(!numLabel.trim()){ toast("أدخل الاسم أولاً","e"); return; }
-  numStep="amount"; numVal=""; render();
-}
-function prevStep(){ numStep="info"; render(); }
-
+function nkPress(k){if(k==="⌫"){numVal=numVal.slice(0,-1);}else if(k==="."&&numVal.includes(".")){return;}else if(numVal.length>=9){return;}else{numVal+=k;}render();}
+function setIcon(ic){numIcon=ic;render();}
+function setCol(c){numCol=c;render();}
+function nextStep(){if(!numLabel.trim()){toast("أدخل الاسم أولاً","e");return;}numStep="amount";numVal="";render();}
+function prevStep(){numStep="info";render();}
 function saveItem(){
-  if(guardLocked()) return;
+  if(guardLocked())return;
   var v=parseFloat(numVal);
-  if(!numLabel.trim()){ toast("أدخل الاسم","e"); return; }
-  if(isNaN(v)||v<=0){ toast("أدخل مبلغاً صحيحاً","e"); return; }
+  if(!numLabel.trim()){toast("أدخل الاسم","e");return;}
+  if(isNaN(v)||v<=0){toast("أدخل مبلغاً صحيحاً","e");return;}
   var md=gm(curM);
   var ni={id:Date.now()+"",label:numLabel.trim(),amount:v,icon:numIcon,color:numCol,paid:false};
-  if(modal==="addCharge") md.charges.push(ni);
-  else md.incomes.push(ni);
-  APP.months[curM]=md;
-  save(); modal=null; numStep="info";
-  toast("تمت الإضافة ✓"); render();
+  if(modal==="addCharge")md.charges.push(ni);else md.incomes.push(ni);
+  APP.months[curM]=md;save();modal=null;numStep="info";toast("تمت الإضافة ✓");render();
 }
-
 function saveSavings(){
-  if(guardLocked()) return;
+  if(guardLocked())return;
   var v=parseFloat(numVal)||0;
   var md=gm(curM);
   var sp=md.incomes.reduce(function(s,i){return s+i.amount;},0)-md.charges.reduce(function(s,c){return s+c.amount;},0);
-  if(v>sp&&sp>0) toast("يتجاوز الفائض المتاح!","w");
-  md.savings=v; APP.months[curM]=md;
-  save(); modal=null;
-  toast("تم حفظ الادخار ✓"); render();
+  if(v>sp&&sp>0)toast("يتجاوز الفائض المتاح!","w");
+  md.savings=v;APP.months[curM]=md;save();modal=null;toast("تم حفظ الادخار ✓");render();
 }
-
 function openEdit(id,type){
-  if(guardLocked()) return;
-  var md=gm(curM);
-  var arr=type==="charge"?md.charges:md.incomes;
-  var item=arr.find(function(x){return x.id===id;});
-  if(!item) return;
-  editId=id; editType=type;
-  numVal=String(item.amount); numLabel=item.label; numIcon=item.icon; numCol=item.color;
-  modal="editItem"; render();
+  if(guardLocked())return;
+  var md=gm(curM);var arr=type==="charge"?md.charges:md.incomes;var item=arr.find(function(x){return x.id===id;});
+  if(!item)return;editId=id;editType=type;numVal=String(item.amount);numLabel=item.label;numIcon=item.icon;numCol=item.color;modal="editItem";render();
 }
-
 function saveEdit(){
-  if(guardLocked()) return;
-  var v=parseFloat(numVal);
-  if(isNaN(v)||v<=0){ toast("أدخل مبلغاً صحيحاً","e"); return; }
-  var md=gm(curM);
-  var arr=editType==="charge"?md.charges:md.incomes;
-  arr=arr.map(function(x){ return x.id===editId ? Object.assign({},x,{label:numLabel||x.label,amount:v,icon:numIcon,color:numCol}) : x; });
-  if(editType==="charge") md.charges=arr; else md.incomes=arr;
-  APP.months[curM]=md; save(); modal=null;
-  toast("تم الحفظ ✓"); render();
+  if(guardLocked())return;
+  var v=parseFloat(numVal);if(isNaN(v)||v<=0){toast("أدخل مبلغاً صحيحاً","e");return;}
+  var md=gm(curM);var arr=editType==="charge"?md.charges:md.incomes;
+  arr=arr.map(function(x){return x.id===editId?Object.assign({},x,{label:numLabel||x.label,amount:v,icon:numIcon,color:numCol}):x;});
+  if(editType==="charge")md.charges=arr;else md.incomes=arr;APP.months[curM]=md;save();modal=null;toast("تم الحفظ ✓");render();
 }
-
-function askDel(id,type){
-  if(guardLocked()) return;
-  pendingDelId=id; pendingDelType=type;
-  modal="confirmDel"; render();
-}
-
+function askDel(id,type){if(guardLocked())return;pendingDelId=id;pendingDelType=type;modal="confirmDel";render();}
 function doDelItem(){
-  if(guardLocked()) return;
-  var md=gm(curM);
-  if(pendingDelType==="charge") md.charges=md.charges.filter(function(x){return x.id!==pendingDelId;});
+  if(guardLocked())return;var md=gm(curM);
+  if(pendingDelType==="charge")md.charges=md.charges.filter(function(x){return x.id!==pendingDelId;});
   else md.incomes=md.incomes.filter(function(x){return x.id!==pendingDelId;});
-  APP.months[curM]=md; save(); modal=null;
-  toast("تم الحذف","e"); render();
+  APP.months[curM]=md;save();modal=null;toast("تم الحذف","e");render();
 }
-
-function doClear(){
-  APP={currency:"MAD",months:{}}; save(); modal=null;
-  toast("تم مسح جميع البيانات","e"); render();
-}
-
-function doExport(){
-  var d=new Date();
-  var blob=new Blob([JSON.stringify(APP,null,2)],{type:"application/json"});
-  var url=URL.createObjectURL(blob);
-  var a=document.createElement("a");
-  a.href=url; a.download="masarifi_"+d.getFullYear()+"-"+(d.getMonth()+1)+"-"+d.getDate()+".json";
-  a.click(); URL.revokeObjectURL(url);
-  toast("تم التصدير ✓");
-}
-
-var _importedData = null;
-
-function onFileChosen(input){
-  var file = input.files[0];
-  if(!file){ return; }
-  var lbl = document.getElementById("fileNameLabel");
-  if(lbl) lbl.textContent = file.name;
-  var reader = new FileReader();
-  reader.onload = function(e){
-    try{
-      var imp = JSON.parse(e.target.result);
-      if(!imp.months){ toast("ملف غير صالح","e"); _importedData=null; return; }
-      _importedData = imp;
-      if(lbl) lbl.style.color = "#06D6A0";
-    }catch(err){ toast("خطأ في قراءة الملف","e"); _importedData=null; }
-  };
-  reader.readAsText(file);
-}
-
-function doImportFile(){
-  if(!_importedData){ toast("اختر ملف JSON أولاً","e"); return; }
-  APP = _importedData; _importedData = null;
-  save(); modal = null;
-  toast("تم الاستيراد بنجاح ✓"); render();
-}
+function doClear(){APP={currency:"MAD",months:{},persons:[]};save();modal=null;toast("تم مسح جميع البيانات","e");render();}
+function doExport(){var d=new Date();var blob=new Blob([JSON.stringify(APP,null,2)],{type:"application/json"});var url=URL.createObjectURL(blob);var a=document.createElement("a");a.href=url;a.download="masarifi_"+d.getFullYear()+"-"+(d.getMonth()+1)+"-"+d.getDate()+".json";a.click();URL.revokeObjectURL(url);toast("تم التصدير ✓");}
+var _importedData=null;
+function onFileChosen(input){var file=input.files[0];if(!file)return;var lbl=document.getElementById("fileNameLabel");if(lbl)lbl.textContent=file.name;var reader=new FileReader();reader.onload=function(e){try{var imp=JSON.parse(e.target.result);if(!imp.months){toast("ملف غير صالح","e");_importedData=null;return;}_importedData=imp;if(lbl)lbl.style.color="#06D6A0";}catch(err){toast("خطأ في قراءة الملف","e");_importedData=null;}};reader.readAsText(file);}
+function doImportFile(){if(!_importedData){toast("اختر ملف JSON أولاً","e");return;}APP=_importedData;if(!APP.persons)APP.persons=[];_importedData=null;save();modal=null;toast("تم الاستيراد بنجاح ✓");render();}
 
 // ── PASSWORD ACTIONS ──────────────────────────────────────
-function openPwdModal(mode){
-  pwdVal=""; pwdMode=mode; modal="pwd"; render();
-}
-
-function pwdKey(k){
-  if(k==="⌫"){ pwdVal=pwdVal.slice(0,-1); render(); return; }
-  if(k==="✓"){ pwdConfirm(); return; }
-  if(pwdVal.length>=12) return;
-  pwdVal+=k; render();
-}
-
-function pwdConfirm(){
-  if(pwdMode==="unlock") doPwdUnlock();
-  else if(pwdMode==="set") doPwdSet();
-  else if(pwdMode==="change-old") doPwdChangeVerify();
-  else if(pwdMode==="change-new") doPwdChangeNew();
-  else if(pwdMode==="remove") doPwdRemove();
-}
-
-function doPwdUnlock(){
-  if(!pwdVal){ toast("أدخل كلمة المرور","e"); return; }
-  if(pwdVal!==getPwd()){ toast("كلمة المرور خاطئة ✗","e"); pwdVal=""; render(); return; }
-  setUnlocked(); modal=null; pwdVal="";
-  toast("تم فتح القفل ✓ جلسة مؤقتة"); render();
-}
-
-function doPwdSet(){
-  if(!pwdVal||pwdVal.length<1){ toast("أدخل كلمة مرور","e"); return; }
-  setPwdStore(pwdVal); modal=null; pwdVal="";
-  toast("تم تعيين كلمة المرور ✓"); render();
-}
-
-function doPwdChangeVerify(){
-  if(pwdVal!==getPwd()){ toast("كلمة المرور الحالية خاطئة ✗","e"); pwdVal=""; render(); return; }
-  pwdOldOk=true; pwdVal=""; pwdMode="change-new"; render();
-}
-
-function doPwdChangeNew(){
-  if(!pwdVal){ toast("أدخل كلمة مرور جديدة","e"); return; }
-  setPwdStore(pwdVal); modal=null; pwdVal=""; pwdOldOk=false;
-  toast("تم تغيير كلمة المرور ✓"); render();
-}
-
-function doPwdRemove(){
-  if(pwdVal!==getPwd()){ toast("كلمة المرور خاطئة ✗","e"); pwdVal=""; render(); return; }
-  removePwd(); reLock(); modal=null; pwdVal="";
-  toast("تمت إزالة كلمة المرور","w"); render();
-}
-
-function reLockNow(){
-  reLock(); toast("تم إعادة القفل 🔒"); render();
-}
+function openPwdModal(mode){pwdVal="";pwdMode=mode;modal="pwd";render();}
+function pwdKey(k){if(k==="⌫"){pwdVal=pwdVal.slice(0,-1);render();return;}if(k==="✓"){pwdConfirm();return;}if(pwdVal.length>=12)return;pwdVal+=k;render();}
+function pwdConfirm(){if(pwdMode==="unlock")doPwdUnlock();else if(pwdMode==="set")doPwdSet();else if(pwdMode==="change-old")doPwdChangeVerify();else if(pwdMode==="change-new")doPwdChangeNew();else if(pwdMode==="remove")doPwdRemove();}
+function doPwdUnlock(){if(!pwdVal){toast("أدخل كلمة المرور","e");return;}if(pwdVal!==getPwd()){toast("كلمة المرور خاطئة ✗","e");pwdVal="";render();return;}setUnlocked();modal=null;pwdVal="";toast("تم فتح القفل ✓ جلسة مؤقتة");render();}
+function doPwdSet(){if(!pwdVal||pwdVal.length<1){toast("أدخل كلمة مرور","e");return;}setPwdStore(pwdVal);modal=null;pwdVal="";toast("تم تعيين كلمة المرور ✓");render();}
+function doPwdChangeVerify(){if(pwdVal!==getPwd()){toast("كلمة المرور الحالية خاطئة ✗","e");pwdVal="";render();return;}pwdOldOk=true;pwdVal="";pwdMode="change-new";render();}
+function doPwdChangeNew(){if(!pwdVal){toast("أدخل كلمة مرور جديدة","e");return;}setPwdStore(pwdVal);modal=null;pwdVal="";pwdOldOk=false;toast("تم تغيير كلمة المرور ✓");render();}
+function doPwdRemove(){if(pwdVal!==getPwd()){toast("كلمة المرور خاطئة ✗","e");pwdVal="";render();return;}removePwd();reLock();modal=null;pwdVal="";toast("تمت إزالة كلمة المرور","w");render();}
+function reLockNow(){reLock();toast("تم إعادة القفل 🔒");render();}
 
 // ── NOTIFICATIONS ─────────────────────────────────────────
-var _notifTimer = null;
-
-function getUnpaidList(){
-  var md = gm(tm());
-  return md.charges.filter(function(c){ return !c.paid; });
-}
-
-function fireUnpaidNotif(){
-  var unpaid = getUnpaidList();
-  if(!unpaid.length) return;
-  var cur = APP.currency;
-  var total = unpaid.reduce(function(s,c){ return s+c.amount; }, 0);
-  var body = unpaid.slice(0,5).map(function(c){
-    return c.icon+" "+c.label+" — "+c.amount.toLocaleString()+" "+cur;
-  }).join("\n");
-  if(unpaid.length>5) body += "\n…و"+(unpaid.length-5)+" آخرين";
-  body += "\n\nالمجموع: "+total.toLocaleString()+" "+cur;
-  try{
-    new Notification("🔔 مصاريفي — "+unpaid.length+" مصروف غير مدفوع", {
-      body: body,
-      icon: "data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 64 64'><rect width='64' height='64' rx='16' fill='%230F1117'/><text y='44' x='8' font-size='40'>💸</text></svg>",
-      tag: "masarifi-unpaid",
-      renotify: true
-    });
-  }catch(e){}
-}
-
-function startNotifTimer(){
-  stopNotifTimer();
-  if(localStorage.getItem("masarifi_notif")!=="1") return;
-  if(Notification.permission!=="granted") return;
-  var minutes = parseInt(localStorage.getItem("masarifi_notif_interval")||"60");
-  var ms = minutes * 60 * 1000;
-  // Fire immediately on start, then every chosen interval
-  fireUnpaidNotif();
-  _notifTimer = setInterval(function(){
-    if(localStorage.getItem("masarifi_notif")==="1"){
-      fireUnpaidNotif();
-    } else {
-      stopNotifTimer();
-    }
-  }, ms);
-}
-
-function stopNotifTimer(){
-  if(_notifTimer){ clearInterval(_notifTimer); _notifTimer=null; }
-}
-
-function setNotifInterval(minutes){
-  localStorage.setItem("masarifi_notif_interval", String(minutes));
-  // Restart timer with new interval if active
-  if(localStorage.getItem("masarifi_notif")==="1" && Notification.permission==="granted"){
-    startNotifTimer();
-    toast("فترة التذكير: كل "+minutes+" دقيقة");
-  }
-  render();
-}
-
-function enableNotifs(){
-  Notification.requestPermission().then(function(perm){
-    if(perm==="granted"){
-      localStorage.setItem("masarifi_notif","1");
-      startNotifTimer();
-      toast("تم تفعيل التذكيرات 🔔");
-    } else {
-      toast("تم رفض الإشعارات","e");
-    }
-    render();
-  });
-}
-
-function toggleNotifs(){
-  var cur = localStorage.getItem("masarifi_notif")==="1";
-  if(cur){
-    localStorage.setItem("masarifi_notif","0");
-    stopNotifTimer();
-    toast("تم إيقاف التذكيرات","w");
-  } else {
-    localStorage.setItem("masarifi_notif","1");
-    startNotifTimer();
-    toast("تم تفعيل التذكيرات 🔔");
-  }
-  render();
-}
+var _notifTimer=null;
+function getUnpaidList(){var md=gm(tm());return md.charges.filter(function(c){return!c.paid;});}
+function fireUnpaidNotif(){var unpaid=getUnpaidList();if(!unpaid.length)return;var cur=APP.currency;var total=unpaid.reduce(function(s,c){return s+c.amount;},0);var body=unpaid.slice(0,5).map(function(c){return c.icon+" "+c.label+" — "+c.amount.toLocaleString()+" "+cur;}).join("\n");if(unpaid.length>5)body+="\n…و"+(unpaid.length-5)+" آخرين";body+="\n\nالمجموع: "+total.toLocaleString()+" "+cur;try{new Notification("🔔 مصاريفي — "+unpaid.length+" مصروف غير مدفوع",{body:body,icon:"data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 64 64'><rect width='64' height='64' rx='16' fill='%230F1117'/><text y='44' x='8' font-size='40'>💸</text></svg>",tag:"masarifi-unpaid",renotify:true});}catch(e){}}
+function startNotifTimer(){stopNotifTimer();if(localStorage.getItem("masarifi_notif")!=="1")return;if(Notification.permission!=="granted")return;var minutes=parseInt(localStorage.getItem("masarifi_notif_interval")||"60");var ms=minutes*60*1000;fireUnpaidNotif();_notifTimer=setInterval(function(){if(localStorage.getItem("masarifi_notif")==="1")fireUnpaidNotif();else stopNotifTimer();},ms);}
+function stopNotifTimer(){if(_notifTimer){clearInterval(_notifTimer);_notifTimer=null;}}
+function setNotifInterval(minutes){localStorage.setItem("masarifi_notif_interval",String(minutes));if(localStorage.getItem("masarifi_notif")==="1"&&Notification.permission==="granted"){startNotifTimer();toast("فترة التذكير: كل "+minutes+" دقيقة");}render();}
+function enableNotifs(){Notification.requestPermission().then(function(perm){if(perm==="granted"){localStorage.setItem("masarifi_notif","1");startNotifTimer();toast("تم تفعيل التذكيرات 🔔");}else toast("تم رفض الإشعارات","e");render()});}
+function toggleNotifs(){var cur=localStorage.getItem("masarifi_notif")==="1";if(cur){localStorage.setItem("masarifi_notif","0");stopNotifTimer();toast("تم إيقاف التذكيرات","w");}else{localStorage.setItem("masarifi_notif","1");startNotifTimer();toast("تم تفعيل التذكيرات 🔔");}render();}
 
 // ── START ─────────────────────────────────────────────────
-// Ensure curM is within visible months
-(function(){
-  var vis=visibleMonths();
-  if(vis.indexOf(curM)===-1) curM=tm();
-})();
+(function(){var vis=visibleMonths();if(vis.indexOf(curM)===-1)curM=tm();})();
 render();
-setTimeout(function(){ autoBackup(); }, 3000);
-// Start hourly reminders if previously enabled
-setTimeout(function(){ startNotifTimer(); }, 1000);
+setTimeout(function(){autoBackup();},3000);
+setTimeout(function(){startNotifTimer();},1000);
 </script>
 </body>
 </html>
