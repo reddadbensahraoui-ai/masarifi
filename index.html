@@ -121,6 +121,7 @@ function reLock(){sessionStorage.removeItem(UNLOCK_KEY);}
 var curPage="budget";
 var curM=tm();
 var curTab="charges";
+var _needScrollChip=true;
 var modal=null;
 var pendingDelId=null,pendingDelType=null;
 var numVal="",numLabel="",numIcon="📦",numCol="#B8B5FF",numStep="info";
@@ -162,7 +163,7 @@ function render(){
   var st=el.scrollTop;
   el.innerHTML=curPage==="sulaf"?pageSulaf():pageBudget();
   el.scrollTop=st;
-  scrollCurChip();
+  if(_needScrollChip){scrollCurChip();_needScrollChip=false;}
 }
 
 // [FIX] تمرير الشريحة المحددة إلى منتصف الشاشة تلقائياً
@@ -755,7 +756,7 @@ function buildModal(){
 }
 
 // ── BUDGET ACTIONS ────────────────────────────────────────
-function setCurM(mk){var vis=visibleMonths();if(vis.indexOf(mk)===-1)return;curM=mk;render();}
+function setCurM(mk){var vis=visibleMonths();if(vis.indexOf(mk)===-1)return;curM=mk;_needScrollChip=true;render();}
 function setTab(t){curTab=t;render();}
 function setCur(c){APP.currency=c;save();render();}
 function selCur(el){setCur(el.dataset.c);}
