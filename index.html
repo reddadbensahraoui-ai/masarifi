@@ -162,6 +162,13 @@ function render(){
   var st=el.scrollTop;
   el.innerHTML=curPage==="sulaf"?pageSulaf():pageBudget();
   el.scrollTop=st;
+  scrollCurChip();
+}
+
+// [FIX] تمرير الشريحة المحددة إلى منتصف الشاشة تلقائياً
+function scrollCurChip(){
+  var chip=document.getElementById("chip-cur");
+  if(chip)chip.scrollIntoView({inline:"center",behavior:"smooth",block:"nearest"});
 }
 
 // ── SULAF HELPERS ─────────────────────────────────────────
@@ -517,12 +524,13 @@ function pageBudget(){
   var h="";
 
   h+='<div style="background:linear-gradient(160deg,#1a1d2e,#0F1117);padding:48px 0 0">';
-  h+='<div style="display:flex;gap:7px;overflow-x:auto;padding:0 20px 12px">';
+  h+='<div id="months-scroll" style="display:flex;gap:7px;overflow-x:auto;padding:0 20px 12px;scroll-behavior:smooth">';
   vs.forEach(function(mk){
     var isNow=mk===now,isCur=mk===curM,isLk=isMonthLocked(mk);
     var s=isNow?"border-color:#06D6A0;color:#06D6A0;background:#06D6A015":isCur?"border-color:#B8B5FF;color:#B8B5FF;background:#B8B5FF15":"";
     var lockIcon=isLk?' <span style="font-size:9px;opacity:.6">🔒</span>':'';
-    h+='<div class="chip" style="'+s+'" onclick="setCurM(\''+mk+'\')">'+mshort(mk)+lockIcon+'</div>';
+    // [FIX] إضافة id="chip-cur" للشريحة المحددة حتى يمكن التمرير إليها
+    h+='<div class="chip"'+(isCur?' id="chip-cur"':'')+' style="'+s+'" onclick="setCurM(\''+mk+'\')">'+mshort(mk)+lockIcon+'</div>';
   });
   h+='</div>';
   h+='<div style="padding:0 20px 14px">';
