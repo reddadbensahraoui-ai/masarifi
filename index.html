@@ -9,12 +9,12 @@
 <meta name="apple-mobile-web-app-title" content="مصاريفي"/>
 <meta name="theme-color" content="#0F1117"/>
 <link rel="manifest" href="manifest.json"/>
-<link href="https://fonts.googleapis.com/css2?family=Cairo:wght@400;700;900&display=swap" rel="stylesheet"/>
+
 <style>
 *{box-sizing:border-box;margin:0;padding:0;-webkit-tap-highlight-color:transparent}
 html,body{height:100%;background:#0F1117;overflow:hidden}
-body{font-family:'Cairo',sans-serif;color:#f0f0f0;direction:rtl}
-input,button,select{font-family:'Cairo',sans-serif}
+body{font-family:'Segoe UI','Tahoma','Geneva','Verdana','Arial',sans-serif;color:#f0f0f0;direction:rtl}
+input,button,select{font-family:'Segoe UI','Tahoma','Geneva','Verdana','Arial',sans-serif}
 ::-webkit-scrollbar{width:0}
 #app{max-width:430px;margin:0 auto;height:100vh;display:flex;flex-direction:column;background:#0F1117}
 #main{flex:1;overflow-y:auto;-webkit-overflow-scrolling:touch;padding-bottom:20px}
@@ -52,6 +52,7 @@ input,button,select{font-family:'Cairo',sans-serif}
 .tx-badge{min-width:36px;height:36px;border-radius:10px;display:flex;align-items:center;justify-content:center;font-size:16px;flex-shrink:0}
 .pill{display:inline-block;padding:2px 9px;border-radius:99px;font-size:10px;font-weight:700}
 </style>
+<base target="_blank">
 </head>
 <body>
 <div id="app">
@@ -70,16 +71,16 @@ var APP=(function(){try{var r=localStorage.getItem(SK);if(r){var p=JSON.parse(r)
 function save(){try{localStorage.setItem(SK,JSON.stringify(APP));}catch(e){toast("تعذر الحفظ!","e");}}
 
 var DC=[
-  {id:"darts",label:"Darts",amount:5000,icon:"🎯",color:"#FF8B94",skipMonths:[]},
-  {id:"charge_m",label:"Charge Du Mois",amount:3500,icon:"🛒",color:"#FFE66D",skipMonths:[]},
-  {id:"reddad",label:"Reddad Charge",amount:3500,icon:"👤",color:"#B8B5FF",skipMonths:[]},
-  {id:"home_crd",label:"HOME CREDIT",amount:2632,icon:"🏠",color:"#FF6B6B",skipMonths:[]},
-  {id:"parent",label:"Parents Give",amount:1000,icon:"❤️",color:"#FF8B94",skipMonths:[]},
-  {id:"ecole",label:"Ecole Med-Yasser",amount:950,icon:"🎓",color:"#A8E6CF",skipMonths:["07","08"]},
-  {id:"internet",label:"INTERNET",amount:250,icon:"📶",color:"#4ECDC4",skipMonths:[]},
-  {id:"rak",label:"RAK (EAU & ÉLECTRICITÉ)",amount:230,icon:"💡",color:"#06D6A0",skipMonths:[]},
-  {id:"assurance",label:"Assurance Voiture",amount:4500,icon:"🚗",color:"#FF6B6B",skipMonths:[],onlyMonths:["03"]},
-  {id:"vignette",label:"Vignette DUSTER",amount:700,icon:"📋",color:"#FFD166",skipMonths:[],onlyMonths:["01"]}
+  {id:"darts",label:"جمعية",amount:5000,icon:"🎯",color:"#FF8B94",skipMonths:[]},
+  {id:"charge_m",label:"مصاريف الشهر",amount:3500,icon:"🛒",color:"#FFE66D",skipMonths:[]},
+  {id:"reddad",label:"مصاريف رداد",amount:3500,icon:"👤",color:"#B8B5FF",skipMonths:[]},
+  {id:"home_crd",label:"قرض السكن",amount:2632,icon:"🏠",color:"#FF6B6B",skipMonths:[]},
+  {id:"parent",label:"إعطاء الوالدين",amount:1000,icon:"❤️",color:"#FF8B94",skipMonths:[]},
+  {id:"ecole",label:"مدرسة مد-ياسر",amount:950,icon:"🎓",color:"#A8E6CF",skipMonths:["07","08"]},
+  {id:"internet",label:"الإنترنت",amount:250,icon:"📶",color:"#4ECDC4",skipMonths:[]},
+  {id:"rak",label:"الراك (الماء والكهرباء)",amount:230,icon:"💡",color:"#06D6A0",skipMonths:[]},
+  {id:"assurance",label:"تأمين السيارة",amount:4500,icon:"🚗",color:"#FF6B6B",skipMonths:[],onlyMonths:["03"]},
+  {id:"vignette",label:"ملصق داستر",amount:700,icon:"📋",color:"#FFD166",skipMonths:[],onlyMonths:["01"]}
 ];
 var DI=[
   {id:"sal",label:"الراتب",amount:21128,icon:"💼",color:"#06D6A0"},
