@@ -714,43 +714,102 @@ function buildModal(){
       h+='</div><label class="lbl">اللون</label><div style="display:flex;gap:7px;flex-wrap:wrap;margin-bottom:18px">';
       COLS.forEach(function(c){h+='<button onclick="setCol(\''+c+'\')" style="width:30px;height:30px;border-radius:99px;background:'+c+';border:'+(numCol===c?"3px solid #fff":"3px solid transparent")+';cursor:pointer"></button>';});
       h+='</div>';
-      // خيارات التكرار
-      h+='<label class="lbl">نوع التكرار</label>';
-      h+='<div style="display:flex;gap:7px;margin-bottom:12px">';
-      var types = [
-        {v:"none",l:"مرة واحدة"},
-        {v:"monthly",l:"شهري"},
-        {v:"yearly",l:"سنوي"},
-        {v:"months",l:"أشهر محددة"}
+      // ── قسم التكرار المُحسَّن ──
+      h+='<div style="border-top:1px solid #2A2D3E;margin:14px 0 14px"></div>';
+      h+='<div style="font-size:12px;color:#B8B5FF;font-weight:800;margin-bottom:12px;display:flex;align-items:center;gap:6px">🔄 <span style="font-family:Cairo,sans-serif">طبيعة الاقتطاع</span></div>';
+      h+='<div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-bottom:12px">';
+      var rtypes=[
+        {v:"none",ic:"📌",t:"مرة واحدة",sub:"هذا الشهر فقط"},
+        {v:"monthly",ic:"🔄",t:"شهري",sub:"كل شهر تلقائياً"},
+        {v:"yearly",ic:"📅",t:"سنوي",sub:"مرة في السنة"},
+        {v:"months",ic:"🗓️",t:"أشهر مخصصة",sub:"أشهر بعينها"}
       ];
-      types.forEach(function(t){
-        var sel = recurType===t.v;
-        h+='<button onclick="setRecurType(\''+t.v+'\')" style="flex:1;padding:8px 0;border-radius:11px;font-size:11px;cursor:pointer;font-family:Cairo,sans-serif;background:'+(sel?"#B8B5FF22":"#1E2030")+';border:1.5px solid '+(sel?"#B8B5FF":"#2A2D3E")+';color:'+(sel?"#B8B5FF":"#666")+';font-weight:'+(sel?"700":"400")+'">'+t.l+'</button>';
+      rtypes.forEach(function(rt){
+        var sel=recurType===rt.v;
+        h+='<button onclick="setRecurType(\''+rt.v+'\')" style="background:'+(sel?"linear-gradient(135deg,#B8B5FF15,#8B5CF615)":"#1E2030")+';border:2px solid '+(sel?"#B8B5FF88":"#2A2D3E")+';border-radius:14px;padding:13px 8px;cursor:pointer;text-align:center;font-family:Cairo,sans-serif;transition:all .2s">';
+        h+='<div style="font-size:24px;margin-bottom:5px">'+rt.ic+'</div>';
+        h+='<div style="font-size:12px;font-weight:800;color:'+(sel?"#B8B5FF":"#bbb")+'">'+rt.t+'</div>';
+        h+='<div style="font-size:10px;color:'+(sel?"#9988cc":"#444")+';margin-top:3px">'+rt.sub+'</div>';
+        if(sel)h+='<div style="margin-top:6px"><span style="background:#B8B5FF;color:#000;border-radius:99px;padding:1px 9px;font-size:9px;font-weight:800">✓ محدد</span></div>';
+        h+='</button>';
       });
       h+='</div>';
+      if(recurType!=="none"){
+        h+='<div style="background:#0d1525;border:1.5px solid #B8B5FF33;border-radius:12px;padding:11px 14px;margin-bottom:12px;display:flex;align-items:flex-start;gap:9px">';
+        h+='<span style="font-size:18px;flex-shrink:0;margin-top:1px">⚡</span>';
+        h+='<div><div style="font-size:12px;color:#B8B5FF;font-weight:800;font-family:Cairo,sans-serif">يبدأ من: '+mlabel(curM)+'</div>';
+        h+='<div style="font-size:10px;color:#556688;margin-top:3px;font-family:Cairo,sans-serif;line-height:1.6">الأشهر الماضية <span style="color:#FF8B9499">لن تتأثر</span> — المصروف يُضاف فقط لهذا الشهر والأشهر القادمة</div>';
+        h+='</div></div>';
+      }
       if(recurType==="months"){
-        h+='<label class="lbl">اختر الأشهر</label>';
-        h+='<div class="month-select" style="display:flex;flex-wrap:wrap;gap:6px;margin-bottom:14px">';
-        var monthsAr = ["يناير","فبراير","مارس","أبريل","ماي","يونيو","يوليوز","غشت","شتنبر","أكتوبر","نونبر","دجنبر"];
-        for(var i=1;i<=12;i++){
-          var mStr = i<10?"0"+i:""+i;
-          var selMonth = recurMonths.indexOf(mStr)!==-1;
-          h+='<div class="chip'+(selMonth?" selected":"")+'" onclick="toggleRecurMonth(\''+mStr+'\')">'+monthsAr[i-1]+'</div>';
+        var MAR=["يناير","فبراير","مارس","أبريل","ماي","يونيو","يوليوز","غشت","شتنبر","أكتوبر","نونبر","دجنبر"];
+        var curMoNum=parseInt(curM.split("-")[1]);
+        h+='<div style="font-size:11px;color:#777;margin-bottom:9px;font-family:Cairo,sans-serif;font-weight:700">اختر الأشهر التي سيُطبَّق فيها هذا الاقتطاع</div>';
+        h+='<div style="display:grid;grid-template-columns:repeat(4,1fr);gap:6px;margin-bottom:10px">';
+        for(var mIdx=1;mIdx<=12;mIdx++){
+          var mStr2=mIdx<10?"0"+mIdx:""+mIdx;
+          var selMo=recurMonths.indexOf(mStr2)!==-1;
+          var isPastMo=mIdx<curMoNum;
+          h+='<button onclick="toggleRecurMonth(\''+mStr2+'\')" style="border-radius:11px;padding:9px 4px;font-size:11px;font-family:Cairo,sans-serif;cursor:'+(isPastMo?"default":"pointer")+';border:1.5px solid '+(selMo?"#B8B5FF88":(isPastMo?"#1a1a1a":"#2A2D3E"))+';background:'+(selMo?"#B8B5FF22":(isPastMo?"#0d0d0d":"#1E2030"))+';color:'+(selMo?"#B8B5FF":(isPastMo?"#2a2a2a":"#777"))+';">';
+          h+=MAR[mIdx-1];
+          h+='<div style="font-size:8px;margin-top:3px;color:'+(selMo?"#B8B5FF":(isPastMo?"#2a2a2a":"#444"))+'">'+(selMo?"✓ محدد":(isPastMo?"ماضٍ":""))+'</div>';
+          h+='</button>';
         }
+        h+='</div>';
+        if(recurMonths.length>0){
+          var MAR2=["يناير","فبراير","مارس","أبريل","ماي","يونيو","يوليوز","غشت","شتنبر","أكتوبر","نونبر","دجنبر"];
+          h+='<div style="background:#B8B5FF12;border:1px solid #B8B5FF33;border-radius:10px;padding:8px 12px;margin-bottom:10px;font-size:11px;color:#B8B5FF;font-family:Cairo,sans-serif">';
+          h+='<span style="color:#8888aa;font-size:10px">الأشهر المحددة: </span>';
+          h+=recurMonths.slice().sort().map(function(m){return MAR2[parseInt(m)-1];}).join(' • ');
+          h+='</div>';
+        }
+      }
+      if(recurType!=="none"){
+        var MAR3=["يناير","فبراير","مارس","أبريل","ماي","يونيو","يوليوز","غشت","شتنبر","أكتوبر","نونبر","دجنبر"];
+        h+='<div style="font-size:10px;color:#445566;margin-bottom:7px;font-family:Cairo,sans-serif">📋 معاينة الأشهر القادمة المتأثرة</div>';
+        h+='<div style="display:flex;gap:5px;flex-wrap:wrap;margin-bottom:16px">';
+        var pvCount=0;
+        for(var pIdx=0;pIdx<24&&pvCount<7;pIdx++){
+          var pvMk=addMonths(curM,pIdx);
+          var pvMo=pvMk.split("-")[1];
+          var pvShow=false;
+          if(recurType==="monthly")pvShow=true;
+          else if(recurType==="yearly")pvShow=(pvMo===curM.split("-")[1]);
+          else if(recurType==="months")pvShow=(recurMonths.indexOf(pvMo)!==-1);
+          if(pvShow){
+            pvCount++;
+            var isFirst=pvMk===curM;
+            h+='<div style="background:'+(isFirst?"#B8B5FF25":"#1E2030")+';border:1px solid '+(isFirst?"#B8B5FF55":"#2A2D3E")+';border-radius:99px;padding:4px 11px;font-size:10px;color:'+(isFirst?"#B8B5FF":"#777")+';font-family:Cairo,sans-serif">';
+            h+=mshort(pvMk)+(isFirst?' <span style="font-size:8px;color:#B8B5FF99">(الآن)</span>':'');
+            h+='</div>';
+          }
+        }
+        if(pvCount===0)h+='<div style="font-size:10px;color:#555;font-family:Cairo,sans-serif">لا توجد أشهر قادمة مطابقة</div>';
+        if(pvCount>=7)h+='<div style="background:#1E2030;border:1px solid #2A2D3E;border-radius:99px;padding:4px 11px;font-size:10px;color:#555">...</div>';
         h+='</div>';
       }
       h+='<button onclick="nextStep()" class="btn-main">التالي ←</button>';
     } else {
-      h+='<div style="text-align:center;margin-bottom:8px"><span style="font-size:22px">'+numIcon+'</span> <span style="color:#888;font-size:13px">'+numLabel+'</span></div>';
-      var recurLabel = "";
-      if(recurType==="monthly") recurLabel = " (شهري)";
-      else if(recurType==="yearly") recurLabel = " (سنوي)";
-      else if(recurType==="months") recurLabel = " (أشهر: "+recurMonths.join("،")+")";
-      h+='<div style="font-size:11px;color:#B8B5FF;text-align:center;margin-bottom:4px">'+recurLabel+'</div>';
+      // رأس الملخص
+      h+='<div style="background:#1E2030;border-radius:14px;padding:12px 14px;margin-bottom:14px;display:flex;align-items:center;gap:11px">';
+      h+='<div style="width:42px;height:42px;border-radius:12px;background:'+numCol+'22;display:flex;align-items:center;justify-content:center;font-size:22px;flex-shrink:0">'+numIcon+'</div>';
+      h+='<div style="flex:1">';
+      h+='<div style="font-size:14px;font-weight:800;color:#ddd;font-family:Cairo,sans-serif">'+numLabel+'</div>';
+      var rBadgeIc="📌",rBadgeTxt="مرة واحدة",rBadgeC="#666",rBadgeBg="#2A2D3E";
+      if(recurType==="monthly"){rBadgeIc="🔄";rBadgeTxt="شهري";rBadgeC="#B8B5FF";rBadgeBg="#B8B5FF18";}
+      else if(recurType==="yearly"){rBadgeIc="📅";rBadgeTxt="سنوي";rBadgeC="#74B9FF";rBadgeBg="#74B9FF18";}
+      else if(recurType==="months"){rBadgeIc="🗓️";rBadgeTxt="أشهر مخصصة ("+recurMonths.length+")";rBadgeC="#FFD166";rBadgeBg="#FFD16618";}
+      h+='<div style="margin-top:4px"><span style="background:'+rBadgeBg+';color:'+rBadgeC+';border-radius:99px;padding:2px 10px;font-size:10px;font-weight:700;font-family:Cairo,sans-serif">'+rBadgeIc+' '+rBadgeTxt+'</span></div>';
+      h+='</div></div>';
+      if(recurType!=="none"){
+        h+='<div style="background:#0d1525;border:1px solid #B8B5FF22;border-radius:10px;padding:8px 12px;margin-bottom:12px;font-size:10px;color:#556688;font-family:Cairo,sans-serif">';
+        h+='⚡ يبدأ من <b style="color:#B8B5FF88">'+mlabel(curM)+'</b> — لن يؤثر على الأشهر الماضية';
+        h+='</div>';
+      }
       h+='<div style="font-size:38px;font-weight:900;color:'+(numVal?"#fff":"#333")+';text-align:center;margin-bottom:10px">'+(numVal||"0")+' <span style="font-size:13px;color:#555">'+APP.currency+'</span></div>';
       h+=numpad();
-      h+='<button onclick="saveItem()" class="btn-main" style="margin-bottom:8px">تأكيد ✓</button>';
-      h+='<button onclick="prevStep()" style="width:100%;background:none;border:none;color:#555;font-size:13px;cursor:pointer;font-family:Cairo,sans-serif;padding:8px">← رجوع</button>';
+      h+='<button onclick="saveItem()" class="btn-main" style="margin-bottom:8px">تأكيد وحفظ ✓</button>';
+      h+='<button onclick="prevStep()" style="width:100%;background:none;border:none;color:#555;font-size:13px;cursor:pointer;font-family:Cairo,sans-serif;padding:8px">← تعديل التفاصيل</button>';
     }
   }
   else if(modal==="editItem"){
