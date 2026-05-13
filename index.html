@@ -53,157 +53,7 @@ input,button,select{font-family:'Segoe UI','Tahoma','Geneva','Verdana','Arial',s
 .pill{display:inline-block;padding:2px 9px;border-radius:99px;font-size:10px;font-weight:700}
 .chip.selected{border-color:#B8B5FF;color:#B8B5FF;background:#B8B5FF15}
 .month-select{display:flex;flex-wrap:wrap;gap:6px;margin-bottom:12px}
-
 .month-select .chip{cursor:pointer;user-select:none}
-
-/* ── KEYFRAMES ──────────────────────────────────────────── */
-@keyframes fadeInUp{
-  from{opacity:0;transform:translateY(20px)}
-  to{opacity:1;transform:translateY(0)}
-}
-@keyframes slideUpSpring{
-  0%{transform:translateY(110%)}
-  55%{transform:translateY(-10px)}
-  75%{transform:translateY(5px)}
-  90%{transform:translateY(-2px)}
-  100%{transform:translateY(0)}
-}
-@keyframes fadeBg{
-  from{opacity:0}
-  to{opacity:1}
-}
-@keyframes scaleIn{
-  from{opacity:0;transform:scale(.9)}
-  to{opacity:1;transform:scale(1)}
-}
-@keyframes toastSpring{
-  0%{transform:translateX(-50%) translateY(-70px) scale(.75);opacity:0}
-  55%{transform:translateX(-50%) translateY(6px) scale(1.05);opacity:1}
-  75%{transform:translateX(-50%) translateY(-3px) scale(.98)}
-  100%{transform:translateX(-50%) translateY(0) scale(1);opacity:1}
-}
-@keyframes iconPop{
-  0%{transform:scale(1) rotate(0)}
-  35%{transform:scale(1.4) rotate(-10deg)}
-  65%{transform:scale(.88) rotate(5deg)}
-  100%{transform:scale(1) rotate(0)}
-}
-@keyframes barGrow{from{width:0 !important}}
-@keyframes ripple{to{transform:scale(5);opacity:0}}
-@keyframes pageEnter{
-  from{opacity:0;transform:translateY(12px)}
-  to{opacity:1;transform:translateY(0)}
-}
-@keyframes numPop{
-  0%{transform:scale(1)}
-  40%{transform:scale(1.08)}
-  100%{transform:scale(1)}
-}
-
-/* ── PAGE TRANSITION ────────────────────────────────────── */
-#main{scroll-behavior:smooth}
-#main.entering{animation:pageEnter .3s cubic-bezier(.25,.46,.45,.94) both}
-
-/* ── CARDS ──────────────────────────────────────────────── */
-.card{transition:transform .18s cubic-bezier(.25,.46,.45,.94),box-shadow .18s}
-.card:active{transform:scale(.985)}
-
-/* ── ITEM ROWS ──────────────────────────────────────────── */
-.irow{
-  transition:background .18s,transform .15s cubic-bezier(.25,.46,.45,.94);
-  animation:fadeInUp .32s cubic-bezier(.25,.46,.45,.94) both;
-}
-.irow:active{transform:scale(.982)}
-
-/* ── PERSON CARDS ───────────────────────────────────────── */
-.person-card{
-  transition:transform .18s cubic-bezier(.25,.46,.45,.94),background .18s,box-shadow .18s;
-  animation:fadeInUp .32s cubic-bezier(.25,.46,.45,.94) both;
-}
-.person-card:active{transform:scale(.97);box-shadow:0 6px 28px rgba(0,0,0,.45)}
-
-/* ── TX ROWS ────────────────────────────────────────────── */
-.tx-row{animation:fadeInUp .3s cubic-bezier(.25,.46,.45,.94) both}
-
-/* ── MODAL ──────────────────────────────────────────────── */
-.modal-bg{
-  animation:fadeBg .22s ease both;
-  backdrop-filter:blur(8px);
-  -webkit-backdrop-filter:blur(8px);
-}
-.modal{animation:slideUpSpring .48s cubic-bezier(.25,.46,.45,.94) both}
-
-/* ── MAIN BUTTON ────────────────────────────────────────── */
-.btn-main{
-  transition:transform .14s cubic-bezier(.25,.46,.45,.94),box-shadow .14s,opacity .14s;
-  box-shadow:0 4px 22px rgba(139,92,246,.38);
-  position:relative;overflow:hidden;
-}
-.btn-main:active{transform:scale(.955);box-shadow:0 2px 8px rgba(139,92,246,.2)}
-.btn-main::after{
-  content:"";position:absolute;inset:0;
-  background:linear-gradient(135deg,rgba(255,255,255,.12),transparent);
-  pointer-events:none;border-radius:inherit;
-}
-
-/* ── NUMPAD KEYS ────────────────────────────────────────── */
-.nk{
-  transition:transform .1s cubic-bezier(.25,.46,.45,.94),background .1s,box-shadow .1s;
-  position:relative;overflow:hidden;
-}
-.nk:active{transform:scale(.84);box-shadow:0 0 0 2px #B8B5FF33}
-
-/* ── CHIPS ──────────────────────────────────────────────── */
-.chip{
-  transition:border-color .18s,color .18s,background .18s,transform .15s;
-}
-.chip:active{transform:scale(.91)}
-.chip.selected{transform:scale(1.06)}
-
-/* ── TABS ───────────────────────────────────────────────── */
-.tab{transition:color .22s,border-color .22s}
-
-/* ── BOTTOM NAV ─────────────────────────────────────────── */
-.bnav{transition:color .2s,border-color .2s}
-.bnav.on .icon{animation:iconPop .42s cubic-bezier(.25,.46,.45,.94) both}
-
-/* ── PROGRESS BAR ───────────────────────────────────────── */
-.bar-f{animation:barGrow .65s cubic-bezier(.25,.46,.45,.94) both}
-
-/* ── TOAST ──────────────────────────────────────────────── */
-#toast{transition:none}
-#toast.on{animation:toastSpring .52s cubic-bezier(.25,.46,.45,.94) both}
-
-/* ── INPUT FOCUS ────────────────────────────────────────── */
-.inp{transition:border-color .2s,box-shadow .2s}
-.inp:focus{border-color:#B8B5FF77;box-shadow:0 0 0 3px #B8B5FF18;outline:none}
-
-/* ── STAGGER — item rows ────────────────────────────────── */
-.irow:nth-child(1){animation-delay:.02s}.irow:nth-child(2){animation-delay:.05s}
-.irow:nth-child(3){animation-delay:.08s}.irow:nth-child(4){animation-delay:.11s}
-.irow:nth-child(5){animation-delay:.14s}.irow:nth-child(6){animation-delay:.17s}
-.irow:nth-child(7){animation-delay:.20s}.irow:nth-child(8){animation-delay:.23s}
-.irow:nth-child(9){animation-delay:.26s}.irow:nth-child(10){animation-delay:.29s}
-.irow:nth-child(11){animation-delay:.32s}.irow:nth-child(12){animation-delay:.35s}
-
-/* ── STAGGER — person cards ─────────────────────────────── */
-.person-card:nth-child(1){animation-delay:.03s}.person-card:nth-child(2){animation-delay:.08s}
-.person-card:nth-child(3){animation-delay:.13s}.person-card:nth-child(4){animation-delay:.18s}
-.person-card:nth-child(5){animation-delay:.23s}.person-card:nth-child(6){animation-delay:.28s}
-
-/* ── STAGGER — tx rows ──────────────────────────────────── */
-.tx-row:nth-child(1){animation-delay:.03s}.tx-row:nth-child(2){animation-delay:.07s}
-.tx-row:nth-child(3){animation-delay:.11s}.tx-row:nth-child(4){animation-delay:.15s}
-.tx-row:nth-child(5){animation-delay:.19s}.tx-row:nth-child(6){animation-delay:.23s}
-
-/* ── RIPPLE EFFECT ──────────────────────────────────────── */
-.ripple-dot{
-  position:absolute;border-radius:50%;
-  background:rgba(255,255,255,.28);
-  transform:scale(0);
-  animation:ripple .5s linear;
-  pointer-events:none;
-}
 </style>
 <base target="_blank">
 </head>
@@ -280,9 +130,9 @@ function newMonth(mk){
       }
       else if(rec.type === "yearly") { var targetMo = rec.yearlyMonth || rec.startMonth.split("-")[1]; add = (mo === targetMo); }
       else if(rec.type === "months") {
-        var recYear = rec.startMonth.split("-")[0];
-        var mkYear = mk.split("-")[0];
-        add = (mkYear === recYear && rec.months && rec.months.indexOf(mo) !== -1);
+        var recYear2 = rec.startMonth.split("-")[0];
+        var mkYear2 = mk.split("-")[0];
+        add = (mkYear2 === recYear2 && rec.months && rec.months.indexOf(mo) !== -1);
       }
       if(add){
         charges.push({
@@ -351,24 +201,16 @@ function setPage(p){
   modal=null;
   document.querySelectorAll(".bnav").forEach(function(b){b.classList.remove("on");});
   var btn=document.getElementById("bnav-"+p);
-  if(btn){
-    btn.classList.add("on");
-    var ic=btn.querySelector(".icon");
-    if(ic){ic.style.animation="none";void ic.offsetWidth;ic.style.animation="";}
-  }
+  if(btn)btn.classList.add("on");
   render();
 }
 
 // ── RENDER ────────────────────────────────────────────────
-var _lastPage="";
 function render(){
   var el=document.getElementById("main");
   var st=el.scrollTop;
-  var pageChanged=curPage!==_lastPage;
-  _lastPage=curPage;
   el.innerHTML=curPage==="sulaf"?pageSulaf():pageBudget();
   el.scrollTop=st;
-  if(pageChanged){el.classList.remove("entering");void el.offsetWidth;el.classList.add("entering");}
   if(_needScrollChip){scrollCurChip();_needScrollChip=false;}
 }
 
@@ -571,7 +413,7 @@ function buildSulafModal(){
     h+='<div style="font-size:38px;font-weight:900;color:'+(txAmount?"#fff":"#333")+';text-align:center;margin-bottom:10px">'+(txAmount||"0")+' <span style="font-size:13px;color:#555">'+APP.currency+'</span></div>';
     h+='<div class="numpad">';
     ["1","2","3","4","5","6","7","8","9",".","0","⌫"].forEach(function(k){
-      h+='<button class="nk'+(k==="⌫"?" del":"")+'" onclick="addRipple(this);nkTx(\''+k+'\')">'+k+'</button>';
+      h+='<button class="nk'+(k==="⌫"?" del":"")+'" onclick="nkTx(\''+k+'\')">'+k+'</button>';
     });
     h+='</div>';
     if(txType==="settle"&&sulafPersonId){
@@ -813,7 +655,7 @@ function pageBudget(){
     } else {
       APP.recurring.forEach(function(rec){
         var mnMap={"01":"يناير","02":"فبراير","03":"مارس","04":"أبريل","05":"ماي","06":"يونيو","07":"يوليوز","08":"غشت","09":"شتنبر","10":"أكتوبر","11":"نونبر","12":"دجنبر"};
-        var typeLabel = rec.type==="monthly"?"شهري":rec.type==="yearly"?"سنوي — كل "+(mnMap[rec.yearlyMonth]||rec.yearlyMonth||"؟"):"أشهر: "+(rec.months||[]).join("،");
+        var typeLabel=rec.type==="monthly"?"شهري":rec.type==="yearly"?"سنوي — كل "+(mnMap[rec.yearlyMonth]||rec.yearlyMonth||"؟"):"أشهر: "+(rec.months||[]).join("،");
         h+='<div class="row" style="padding:6px 0;border-bottom:1px solid #2A2D3E">';
         h+='<div style="display:flex;align-items:center;gap:8px"><span>'+rec.icon+'</span><span style="font-size:13px">'+rec.label+'</span><span style="font-size:10px;color:#666">('+typeLabel+')</span></div>';
         h+='<div style="display:flex;align-items:center;gap:6px"><span style="font-size:12px;color:'+rec.color+'">'+rec.amount.toLocaleString()+' '+cur+'</span>';
@@ -855,7 +697,7 @@ function itemRow(item,cur,showPaid,locked){
 // ── NUMPAD ────────────────────────────────────────────────
 function numpad(){
   var h='<div class="numpad">';
-  ["1","2","3","4","5","6","7","8","9",".","0","⌫"].forEach(function(k){h+='<button class="nk'+(k==="⌫"?" del":"")+'" onclick="addRipple(this);nkPress(\''+k+'\')">'+k+'</button>';});
+  ["1","2","3","4","5","6","7","8","9",".","0","⌫"].forEach(function(k){h+='<button class="nk'+(k==="⌫"?" del":"")+'" onclick="nkPress(\''+k+'\')">'+k+'</button>';});
   h+='</div>';
   return h;
 }
@@ -899,12 +741,12 @@ function buildModal(){
       if(recurType==="yearly"){
         h+='<label class="lbl">في أي شهر يتكرر كل سنة؟</label>';
         h+='<div class="month-select" style="display:flex;flex-wrap:wrap;gap:6px;margin-bottom:14px">';
-        var monthsAr2 = ["يناير","فبراير","مارس","أبريل","ماي","يونيو","يوليوز","غشت","شتنبر","أكتوبر","نونبر","دجنبر"];
-        var curMoNum = parseInt(curM.split("-")[1]);
+        var monthsAr2=["يناير","فبراير","مارس","أبريل","ماي","يونيو","يوليوز","غشت","شتنبر","أكتوبر","نونبر","دجنبر"];
+        var curMoNum=parseInt(curM.split("-")[1]);
         for(var yi=1;yi<=12;yi++){
-          if(yi < curMoNum) continue;
-          var ymStr = yi<10?"0"+yi:""+yi;
-          var ysel = recurYearlyMonth===ymStr;
+          if(yi<curMoNum)continue;
+          var ymStr=yi<10?"0"+yi:""+yi;
+          var ysel=recurYearlyMonth===ymStr;
           h+='<div class="chip'+(ysel?" selected":"")+'" onclick="setYearlyMonth(\''+ymStr+'\')">'+monthsAr2[yi-1]+'</div>';
         }
         h+='</div>';
@@ -912,12 +754,12 @@ function buildModal(){
       if(recurType==="months"){
         h+='<label class="lbl">اختر الأشهر القادمة</label>';
         h+='<div class="month-select" style="display:flex;flex-wrap:wrap;gap:6px;margin-bottom:14px">';
-        var monthsAr = ["يناير","فبراير","مارس","أبريل","ماي","يونيو","يوليوز","غشت","شتنبر","أكتوبر","نونبر","دجنبر"];
-        var curMonthNum = parseInt(curM.split("-")[1]);
+        var monthsAr=["يناير","فبراير","مارس","أبريل","ماي","يونيو","يوليوز","غشت","شتنبر","أكتوبر","نونبر","دجنبر"];
+        var curMonthNum=parseInt(curM.split("-")[1]);
         for(var i=1;i<=12;i++){
-          if(i < curMonthNum) continue;
-          var mStr = i<10?"0"+i:""+i;
-          var selMonth = recurMonths.indexOf(mStr)!==-1;
+          if(i<curMonthNum)continue;
+          var mStr=i<10?"0"+i:""+i;
+          var selMonth=recurMonths.indexOf(mStr)!==-1;
           h+='<div class="chip'+(selMonth?" selected":"")+'" onclick="toggleRecurMonth(\''+mStr+'\')">'+monthsAr[i-1]+'</div>';
         }
         h+='</div>';
@@ -927,7 +769,7 @@ function buildModal(){
       h+='<div style="text-align:center;margin-bottom:8px"><span style="font-size:22px">'+numIcon+'</span> <span style="color:#888;font-size:13px">'+numLabel+'</span></div>';
       var recurLabel = "";
       if(recurType==="monthly") recurLabel = " (شهري — حتى نهاية السنة)";
-      else if(recurType==="yearly") { var ynMap={"01":"يناير","02":"فبراير","03":"مارس","04":"أبريل","05":"ماي","06":"يونيو","07":"يوليوز","08":"غشت","09":"شتنبر","10":"أكتوبر","11":"نونبر","12":"دجنبر"}; recurLabel = " (سنوي — كل "+( ynMap[recurYearlyMonth]||recurYearlyMonth)+")"; }
+      else if(recurType==="yearly"){ var ynMap={"01":"يناير","02":"فبراير","03":"مارس","04":"أبريل","05":"ماي","06":"يونيو","07":"يوليوز","08":"غشت","09":"شتنبر","10":"أكتوبر","11":"نونبر","12":"دجنبر"}; recurLabel=" (سنوي — كل "+(ynMap[recurYearlyMonth]||recurYearlyMonth)+")"; }
       else if(recurType==="months") recurLabel = " (أشهر: "+recurMonths.join("،")+")";
       h+='<div style="font-size:11px;color:#B8B5FF;text-align:center;margin-bottom:4px">'+recurLabel+'</div>';
       h+='<div style="font-size:38px;font-weight:900;color:'+(numVal?"#fff":"#333")+';text-align:center;margin-bottom:10px">'+(numVal||"0")+' <span style="font-size:13px;color:#555">'+APP.currency+'</span></div>';
@@ -1002,14 +844,6 @@ function togglePaid(id){
   md.charges=md.charges.map(function(c){if(c.id!==id)return c;var nowPaid=!c.paid;return Object.assign({},c,{paid:nowPaid,paidAt:nowPaid?new Date().toLocaleString("ar-MA",{day:"2-digit",month:"2-digit",year:"numeric",hour:"2-digit",minute:"2-digit"}):null});});
   APP.months[curM]=md;save();render();
 }
-function addRipple(el){
-  var r=document.createElement("span");
-  var d=Math.max(el.offsetWidth,el.offsetHeight);
-  r.style.cssText="width:"+d+"px;height:"+d+"px;margin-top:-"+(d/2)+"px;margin-left:-"+(d/2)+"px;left:50%;top:50%;position:absolute;";
-  r.className="ripple-dot";
-  el.appendChild(r);
-  setTimeout(function(){if(r.parentNode)r.remove();},520);
-}
 function nkPress(k){if(k==="⌫"){numVal=numVal.slice(0,-1);}else if(k==="."&&numVal.includes(".")){return;}else if(numVal.length>=9){return;}else{numVal+=k;}render();}
 function setIcon(ic){numIcon=ic;render();}
 function setCol(c){numCol=c;render();}
@@ -1036,13 +870,12 @@ function saveItem(){
   var md=gm(curM);
   var ni={id:Date.now()+"",label:numLabel.trim(),amount:v,icon:numIcon,color:numCol,paid:false};
   if(modal==="addCharge"){
-    // تحقق إذا كانت قاعدة التكرار تنطبق على الشهر الحالي قبل الإضافة
-    var curMo = curM.split("-")[1];
-    var addToCurrentMonth = false;
-    if(recurType === "none")          addToCurrentMonth = true;
-    else if(recurType === "monthly")   addToCurrentMonth = true;
-    else if(recurType === "yearly")    addToCurrentMonth = (recurYearlyMonth === curMo);
-    else if(recurType === "months")    addToCurrentMonth = (recurMonths.indexOf(curMo) !== -1);
+    var curMo=curM.split("-")[1];
+    var addToCurrentMonth=false;
+    if(recurType==="none")          addToCurrentMonth=true;
+    else if(recurType==="monthly")  addToCurrentMonth=true;
+    else if(recurType==="yearly")   addToCurrentMonth=(recurYearlyMonth===curMo);
+    else if(recurType==="months")   addToCurrentMonth=(recurMonths.indexOf(curMo)!==-1);
     if(addToCurrentMonth) md.charges.push(ni);
     // إذا كان هناك تكرار، أضف إلى القائمة المتكررة
     if(recurType!=="none"){
