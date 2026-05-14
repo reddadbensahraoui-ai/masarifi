@@ -679,8 +679,8 @@ function itemRow(item,cur,showPaid,locked){
     else{h+='<div style="border:2px solid #333;border-radius:99px;width:26px;height:26px;display:flex;align-items:center;justify-content:center;color:#06D6A0;font-size:13px;flex-shrink:0;opacity:.5">'+(item.paid?"✓":"")+'</div>';}
   }
   h+='<span style="font-size:18px">'+item.icon+'</span>';
-  h+='<div><div style="font-size:13px;color:'+(showPaid&&item.paid?"#555":"#ccc")+';text-decoration:'+(showPaid&&item.paid?"line-through":"none")+'">'+item.label+'</div>';
-  if(showPaid&&item.paid)h+='<div style="font-size:10px;color:#06D6A0">✓ مدفوع'+(item.paidAt?' — <span style="color:#3a7a5a">'+item.paidAt+'</span>':'')+'</div>';
+  h+='<div><div style="font-size:13px;color:'+(showPaid&&item.paid?"#aaa":"#ccc")+'">'+item.label+'</div>';
+  if(showPaid&&item.paid)h+='<div style="font-size:10px;color:#06D6A0">✓ تم الدفع'+(item.paidAt?' — <span style="color:#3a7a5a">'+item.paidAt+'</span>':'')+'</div>';
   h+='</div></div>';
   h+='<div style="display:flex;align-items:center;gap:7px">';
   h+='<span style="font-size:14px;font-weight:800;color:'+(showPaid&&item.paid?"#444":item.color)+'">'+item.amount.toLocaleString()+' '+cur+'</span>';
