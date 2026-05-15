@@ -838,11 +838,23 @@ function openModal(m){
 }
 function closeModal(){modal=null;render();}
 function bgClick(e){if(e.target===e.currentTarget){modal=null;render();}}
+var _paidTap={id:null,timer:null};
 function togglePaid(id){
   if(guardLocked())return;
-  var md=gm(curM);
-  md.charges=md.charges.map(function(c){if(c.id!==id)return c;var nowPaid=!c.paid;return Object.assign({},c,{paid:nowPaid,paidAt:nowPaid?new Date().toLocaleString("ar-MA",{day:"2-digit",month:"2-digit",year:"numeric",hour:"2-digit",minute:"2-digit"}):null});});
-  APP.months[curM]=md;save();render();
+  if(_paidTap.id===id){
+    // second tap — confirm
+    clearTimeout(_paidTap.timer);
+    _paidTap={id:null,timer:null};
+    var md=gm(curM);
+    md.charges=md.charges.map(function(c){if(c.id!==id)return c;var nowPaid=!c.paid;return Object.assign({},c,{paid:nowPaid,paidAt:nowPaid?new Date().toLocaleString("ar-MA",{day:"2-digit",month:"2-digit",year:"numeric",hour:"2-digit",minute:"2-digit"}):null});});
+    APP.months[curM]=md;save();render();
+  } else {
+    // first tap — wait for second
+    clearTimeout(_paidTap.timer);
+    _paidTap.id=id;
+    toast("اضغط مرة ثانية للتأكيد ✓","w");
+    _paidTap.timer=setTimeout(function(){_paidTap={id:null,timer:null};},1500);
+  }
 }
 function nkPress(k){if(k==="⌫"){numVal=numVal.slice(0,-1);}else if(k==="."&&numVal.includes(".")){return;}else if(numVal.length>=9){return;}else{numVal+=k;}render();}
 function setIcon(ic){numIcon=ic;render();}
