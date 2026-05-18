@@ -1066,6 +1066,32 @@ function saveItem(){
       };
       if(!APP.recurring) APP.recurring = [];
       APP.recurring.push(rec);
+      // تحديث الأشهر الموجودة مسبقاً التي تنطبق عليها القاعدة الجديدة
+      var recStartYear = rec.startMonth.split("-")[0];
+      Object.keys(APP.months).forEach(function(mk){
+        if(mk === curM) return; // الشهر الحالي تمت معالجته أعلاه
+        if(mkCmp(mk, rec.startMonth) < 0) return;
+        var mkYear = mk.split("-")[0];
+        var mo2 = mk.split("-")[1];
+        var shouldAdd = false;
+        if(rec.type==="monthly")       shouldAdd = (mkYear === recStartYear);
+        else if(rec.type==="yearly")   shouldAdd = (mo2 === rec.yearlyMonth);
+        else if(rec.type==="months")   shouldAdd = (mkYear === recStartYear && rec.months.indexOf(mo2)!==-1);
+        if(!shouldAdd) return;
+        // تحقق أنه غير موجود مسبقاً
+        var exists = APP.months[mk].charges.some(function(c){return c.recurringId===rec.id;});
+        if(!exists){
+          APP.months[mk].charges.push({
+            id: rec.id+"_"+mk,
+            label: rec.label,
+            amount: rec.amount,
+            icon: rec.icon,
+            color: rec.color,
+            paid: false,
+            recurringId: rec.id
+          });
+        }
+      });
       toast("تمت الإضافة كمصروف متكرر ✓");
     } else {
       toast("تمت الإضافة ✓");
