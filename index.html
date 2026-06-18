@@ -54,6 +54,12 @@ input,button,select{font-family:'Segoe UI','Tahoma','Geneva','Verdana','Arial',s
 .chip.selected{border-color:#B8B5FF;color:#B8B5FF;background:#B8B5FF15}
 .month-select{display:flex;flex-wrap:wrap;gap:6px;margin-bottom:12px}
 .month-select .chip{cursor:pointer;user-select:none}
+/* Forecast styles */
+.fc-month-card{background:#1E2030;border-radius:14px;padding:12px 14px;margin-bottom:8px;border-right:3px solid #B8B5FF44}
+.fc-month-card.fc-surplus{border-right-color:#06D6A066}
+.fc-month-card.fc-deficit{border-right-color:#FF6B6B66}
+.fc-planned-item{display:flex;align-items:center;justify-content:space-between;padding:7px 0;border-bottom:1px solid #2A2D3E22}
+.fc-planned-item:last-child{border-bottom:none}
 </style>
 <base target="_blank">
 </head>
@@ -62,6 +68,7 @@ input,button,select{font-family:'Segoe UI','Tahoma','Geneva','Verdana','Arial',s
   <div id="main"></div>
   <div id="bottom-nav">
     <button class="bnav on" id="bnav-budget" onclick="setPage('budget')"><span class="icon">💰</span>الميزانية</button>
+    <button class="bnav" id="bnav-forecast" onclick="setPage('forecast')"><span class="icon">📦</span>التوقعات</button>
     <button class="bnav" id="bnav-sulaf" onclick="setPage('sulaf')"><span class="icon">🤝</span>السلف</button>
   </div>
 </div>
@@ -69,7 +76,7 @@ input,button,select{font-family:'Segoe UI','Tahoma','Geneva','Verdana','Arial',s
 <script>
 // ── DATA ──────────────────────────────────────────────────
 var SK="masarifi_v1";
-var APP=(function(){try{var r=localStorage.getItem(SK);if(r){var p=JSON.parse(r);if(!p.persons)p.persons=[];if(!p.recurring)p.recurring=[];return p;}}catch(e){}return{currency:"MAD",months:{},persons:[],recurring:[]};})();
+var APP=(function(){try{var r=localStorage.getItem(SK);if(r){var p=JSON.parse(r);if(!p.persons)p.persons=[];if(!p.recurring)p.recurring=[];if(!p.planned)p.planned=[];return p;}}catch(e){}return{currency:"MAD",months:{},persons:[],recurring:[],planned:[]};})();
 
 function save(){try{localStorage.setItem(SK,JSON.stringify(APP));}catch(e){toast("تعذر الحفظ!","e");}}
 
@@ -106,22 +113,25 @@ function visibleMonths(){var now=tm();var year=now.slice(0,4);var m=[];for(var i
 function gen10Y(){var k=[],d=new Date(2024,0,1);for(var i=0;i<144;i++){k.push(d.getFullYear()+"-"+(d.getMonth()<9?"0":"")+(d.getMonth()+1));d.setMonth(d.getMonth()+1);}return k;}
 var ALL=gen10Y();
 function td(){return new Date().toISOString().slice(0,10);}
+function nowStamp(){return new Date().toLocaleString("ar-MA",{day:"2-digit",month:"2-digit",year:"numeric",hour:"2-digit",minute:"2-digit"});}
+function addLog(item,action,detail){
+  if(!item.log)item.log=[];
+  item.log.push({at:nowStamp(),action:action,detail:detail||""});
+}
 function mlabel(mk){var p=mk.split("-");return new Date(p[0],p[1]-1,1).toLocaleDateString("ar-MA",{month:"long",year:"numeric"});}
 function mshort(mk){return new Date(mk+"-01").toLocaleDateString("ar-MA",{month:"short",year:"2-digit"});}
 function getDeficit(mk){var prev=addMonths(mk,-1);if(!APP.months[prev])return 0;var pm=APP.months[prev];var ti=pm.incomes.reduce(function(s,i){return s+i.amount;},0);var tc=pm.charges.reduce(function(s,c){return s+c.amount;},0);var surp=ti-tc;return surp<0?Math.abs(surp):0;}
 function newMonth(mk){
   var mo=mk?(mk.split("-")[1]):"00";
   var charges=[];
-  // المصاريف الثابتة من DC
   DC.forEach(function(c){
     if(c.skipMonths&&c.skipMonths.indexOf(mo)!==-1)return;
     if(c.onlyMonths&&c.onlyMonths.indexOf(mo)===-1)return;
     charges.push({id:c.id,label:c.label,amount:c.amount,icon:c.icon,color:c.color,paid:false});
   });
-  // المصاريف المتكررة المضافة من المستخدم
   if(APP.recurring){
     APP.recurring.forEach(function(rec){
-      if(mkCmp(mk, rec.startMonth) < 0) return; // لا نضيف قبل شهر البداية
+      if(mkCmp(mk, rec.startMonth) < 0) return;
       var add = false;
       if(rec.type === "monthly") {
         var recYear = rec.startMonth.split("-")[0];
@@ -169,12 +179,18 @@ var modal=null;
 var pendingDelId=null,pendingDelType=null;
 var numVal="",numLabel="",numIcon="📦",numCol="#B8B5FF",numStep="info";
 var editId=null,editType=null;
+var numComment="";
 var pwdVal="",pwdMode="",pwdOldOk=false;
+var expandedLog={};
+var recurType = "none";
+var recurMonths = [];
+var recurYearlyMonth = "";
 
-// تكرار المصروف الجديد
-var recurType = "none"; // "none", "monthly", "yearly", "months"
-var recurMonths = []; // للأشهر المحددة
-var recurYearlyMonth = ""; // الشهر المحدد للتكرار السنوي
+// ── FORECAST STATE ────────────────────────────────────────
+var fcModal=null;
+var fcPlanLabel="",fcPlanIcon="📦",fcPlanCol="#FFD166",fcPlanAmount="",fcPlanMonth="";
+var fcEditId=null;
+var fcPendingDelId=null;
 
 // ── SULAF STATE ───────────────────────────────────────────
 var sulafView="list";
@@ -198,6 +214,7 @@ function guardLocked(){if(!isMonthLocked(curM))return false;if(isUnlocked())retu
 function setPage(p){
   curPage=p;
   if(p==="sulaf"){sulafView="list";sulafPersonId=null;sulafModal=null;}
+  if(p==="forecast"){fcModal=null;}
   modal=null;
   document.querySelectorAll(".bnav").forEach(function(b){b.classList.remove("on");});
   var btn=document.getElementById("bnav-"+p);
@@ -209,7 +226,9 @@ function setPage(p){
 function render(){
   var el=document.getElementById("main");
   var st=el.scrollTop;
-  el.innerHTML=curPage==="sulaf"?pageSulaf():pageBudget();
+  if(curPage==="sulaf") el.innerHTML=pageSulaf();
+  else if(curPage==="forecast") el.innerHTML=pageForecast();
+  else el.innerHTML=pageBudget();
   el.scrollTop=st;
   if(_needScrollChip){scrollCurChip();_needScrollChip=false;}
 }
@@ -217,6 +236,309 @@ function render(){
 function scrollCurChip(){
   var chip=document.getElementById("chip-cur");
   if(chip)chip.scrollIntoView({inline:"center",behavior:"smooth",block:"nearest"});
+}
+
+// ══════════════════════════════════════════════════════════
+// FORECAST PAGE
+// ══════════════════════════════════════════════════════════
+
+// ── FORECAST HELPERS ──────────────────────────────────────
+// Build a projected month: DC + recurring + planned items
+function forecastMonth(mk){
+  var mo = mk.split("-")[1];
+  var mkYear = mk.split("-")[0];
+  var charges = [];
+
+  // DC defaults
+  DC.forEach(function(c){
+    if(c.skipMonths && c.skipMonths.indexOf(mo) !== -1) return;
+    if(c.onlyMonths && c.onlyMonths.indexOf(mo) === -1) return;
+    charges.push({id:c.id, label:c.label, amount:c.amount, icon:c.icon, color:c.color, source:"default"});
+  });
+
+  // User recurring rules
+  if(APP.recurring){
+    APP.recurring.forEach(function(rec){
+      if(mkCmp(mk, rec.startMonth) < 0) return;
+      var recStartYear = rec.startMonth.split("-")[0];
+      var add = false;
+      if(rec.type==="monthly")     add = (mkYear === recStartYear);
+      else if(rec.type==="yearly") { var tm2 = rec.yearlyMonth || rec.startMonth.split("-")[1]; add = (mo === tm2); }
+      else if(rec.type==="months") add = (mkYear === recStartYear && rec.months && rec.months.indexOf(mo) !== -1);
+      if(add) charges.push({id:"rec_"+rec.id, label:rec.label, amount:rec.amount, icon:rec.icon, color:rec.color, source:"recurring"});
+    });
+  }
+
+  // One-time planned items for this month
+  if(APP.planned){
+    APP.planned.forEach(function(p){
+      if(p.month === mk) charges.push({id:"pl_"+p.id, label:p.label, amount:p.amount, icon:p.icon, color:p.color, source:"planned"});
+    });
+  }
+
+  // If actual data exists for this month, use it instead (for past/current months)
+  if(APP.months[mk]){
+    var actual = APP.months[mk];
+    var ti = actual.incomes.filter(function(i){return i.id!=="deficit_deduct";}).reduce(function(s,i){return s+i.amount;},0);
+    var tc = actual.charges.reduce(function(s,c){return s+c.amount;},0);
+    return {mk:mk, incomes:ti, charges:tc, isActual:true, chargesList:charges};
+  }
+
+  // Default income (DI)
+  var totalInc = DI.reduce(function(s,i){return s+i.amount;},0);
+  var totalChg = charges.reduce(function(s,c){return s+c.amount;},0);
+  return {mk:mk, incomes:totalInc, charges:totalChg, isActual:false, chargesList:charges};
+}
+
+function pageForecast(){
+  if(!APP.planned) APP.planned = [];
+  var cur = APP.currency;
+  var now = tm();
+  var nowYear = now.slice(0,4);
+  var curMoIdx = parseInt(now.slice(5,7)) - 1;
+
+  // Forecast the remaining months of this year starting from next month
+  var nextMk = addMonths(now, 1);
+  var futureMonths = [];
+  for(var i = curMoIdx + 1; i < 12; i++){
+    var mk2 = nowYear + "-" + (i < 9 ? "0" : "") + (i+1);
+    futureMonths.push(mk2);
+  }
+
+  var totalFcInc = 0, totalFcChg = 0;
+  var fcData = futureMonths.map(function(mk){
+    var f = forecastMonth(mk);
+    totalFcInc += f.incomes;
+    totalFcChg += f.charges;
+    return f;
+  });
+
+  var totalSurplus = totalFcInc - totalFcChg;
+  var plannedTotal = (APP.planned||[]).filter(function(p){return p.month >= now;}).reduce(function(s,p){return s+p.amount;},0);
+
+  var h = "";
+  h += '<div style="background:linear-gradient(160deg,#1a1d2e,#0F1117);padding:48px 20px 16px">';
+  h += '<div style="font-size:22px;font-weight:900;margin-bottom:2px">📦 توقعات الميزانية</div>';
+  h += '<div style="font-size:11px;color:#555;margin-bottom:16px">توقع دخلك ومصاريفك للأشهر القادمة</div>';
+
+  // Summary cards
+  h += '<div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:10px">';
+  h += '<div class="card" style="margin-bottom:0;background:#0a1f0a;border:1px solid #06D6A022">';
+  h += '<div style="font-size:10px;color:#555;margin-bottom:3px">💰 دخل متوقع</div>';
+  h += '<div style="font-size:20px;font-weight:900;color:#06D6A0">'+totalFcInc.toLocaleString()+'</div>';
+  h += '<div style="font-size:9px;color:#444">'+cur+' — '+(12-curMoIdx-1)+' شهر</div></div>';
+  h += '<div class="card" style="margin-bottom:0;background:#1f1a0a;border:1px solid #FFD16622">';
+  h += '<div style="font-size:10px;color:#555;margin-bottom:3px">📤 مصاريف متوقعة</div>';
+  h += '<div style="font-size:20px;font-weight:900;color:#FFD166">'+totalFcChg.toLocaleString()+'</div>';
+  h += '<div style="font-size:9px;color:#444">'+cur+' شامل المخططات</div></div>';
+  h += '</div>';
+
+  var sc = totalSurplus >= 0 ? "#06D6A0" : "#FF6B6B";
+  h += '<div class="card" style="border:1.5px solid '+(totalSurplus>=0?"#06D6A033":"#FF6B6B33")+';background:'+(totalSurplus>=0?"#0a1f0a":"#1f0a0a")+'">';
+  h += '<div class="row"><span style="font-size:12px;color:#666">الفائض / العجز المتوقع حتى نهاية '+nowYear+'</span>';
+  h += '<span style="font-size:18px;font-weight:900;color:'+sc+'">'+(totalSurplus>=0?"+":"")+totalSurplus.toLocaleString()+' '+cur+'</span></div>';
+  h += '<div class="bar-t" style="margin-top:8px"><div class="bar-f" style="width:'+(totalFcInc>0?Math.min((totalFcChg/totalFcInc)*100,100):0)+'%;background:'+sc+'"></div></div>';
+  if(plannedTotal > 0) h += '<div style="margin-top:8px;font-size:11px;color:#FFD166">📦 مشتريات مخططة: '+plannedTotal.toLocaleString()+' '+cur+'</div>';
+  h += '</div>';
+  h += '</div>'; // end header
+
+  h += '<div style="padding:12px 20px">';
+
+  // Add planned purchase button
+  h += '<button onclick="openFcModal(\'addPlan\',\''+nextMk+'\')" style="width:100%;background:#1E2030;border:1.5px dashed #FFD16655;border-radius:13px;padding:11px;color:#FFD166;font-size:13px;cursor:pointer;font-family:Cairo,sans-serif;margin-bottom:14px">+ إضافة مشتريات / نفقة مخططة</button>';
+
+  if(futureMonths.length === 0){
+    h += '<div style="text-align:center;padding:30px 20px"><div style="font-size:40px;opacity:.2">📅</div><div style="font-size:13px;color:#444;margin-top:8px">أنت في آخر شهر من السنة!</div></div>';
+  } else {
+    // Month by month forecast
+    h += '<div style="font-size:11px;color:#555;margin-bottom:10px;font-weight:700">توقعات شهر بشهر</div>';
+    fcData.forEach(function(f){
+      var surplus = f.incomes - f.charges;
+      var sc2 = surplus >= 0 ? "#06D6A0" : "#FF6B6B";
+      var cls = surplus >= 0 ? "fc-surplus" : "fc-deficit";
+      var planItems = (APP.planned||[]).filter(function(p){return p.month === f.mk;});
+
+      h += '<div class="fc-month-card '+cls+'">';
+      h += '<div class="row" style="margin-bottom:8px">';
+      h += '<div style="font-size:14px;font-weight:800;color:#ddd">'+mlabel(f.mk)+'</div>';
+      h += '<div style="text-align:left"><div style="font-size:16px;font-weight:900;color:'+sc2+'">'+(surplus>=0?"+":"")+surplus.toLocaleString()+'</div><div style="font-size:9px;color:#444">'+cur+'</div></div>';
+      h += '</div>';
+
+      // Mini bar
+      h += '<div class="bar-t" style="margin-bottom:8px"><div class="bar-f" style="width:'+(f.incomes>0?Math.min((f.charges/f.incomes)*100,100):0)+'%;background:'+sc2+'"></div></div>';
+
+      h += '<div style="display:flex;justify-content:space-between;font-size:10px;color:#555;margin-bottom:8px">';
+      h += '<span>💰 دخل: <b style="color:#06D6A0">'+f.incomes.toLocaleString()+'</b></span>';
+      h += '<span>📤 مصاريف: <b style="color:#FF8B94">'+f.charges.toLocaleString()+'</b></span>';
+      h += '</div>';
+
+      // Planned items for this month
+      if(planItems.length > 0){
+        h += '<div style="background:#13151f;border-radius:9px;padding:8px 10px;margin-bottom:6px">';
+        h += '<div style="font-size:10px;color:#FFD166;margin-bottom:6px;font-weight:700">📦 المخططات:</div>';
+        planItems.forEach(function(pl){
+          h += '<div class="fc-planned-item">';
+          h += '<div style="display:flex;align-items:center;gap:7px"><span>'+pl.icon+'</span><span style="font-size:12px;color:#ccc">'+pl.label+'</span></div>';
+          h += '<div style="display:flex;align-items:center;gap:6px">';
+          h += '<span style="font-size:12px;font-weight:700;color:'+pl.color+'">'+pl.amount.toLocaleString()+' '+cur+'</span>';
+          h += '<button onclick="editFcPlan(\''+pl.id+'\')" style="background:#2A2D3E;border:none;border-radius:7px;width:24px;height:24px;font-size:11px;cursor:pointer;color:#777">✏️</button>';
+          h += '<button onclick="askDelFcPlan(\''+pl.id+'\')" style="background:#2A2D3E;border:none;border-radius:7px;width:24px;height:24px;font-size:12px;cursor:pointer;color:#555">🗑</button>';
+          h += '</div></div>';
+        });
+        h += '</div>';
+      }
+
+      // Quick add button for this month
+      h += '<button onclick="openFcModal(\'addPlan\',\''+f.mk+'\')" style="width:100%;background:none;border:1px dashed #FFD16622;border-radius:9px;padding:6px;color:#555;font-size:11px;cursor:pointer;font-family:Cairo,sans-serif">+ إضافة مخطط لهذا الشهر</button>';
+      h += '</div>';
+    });
+  }
+
+  // Planned items overview section
+  var allFuturePlanned = (APP.planned||[]).filter(function(p){return p.month > now;});
+  if(allFuturePlanned.length > 0){
+    h += '<div style="margin-top:6px;font-size:11px;color:#555;margin-bottom:8px;font-weight:700">📋 كل المخططات القادمة</div>';
+    h += '<div class="card" style="padding:10px 12px">';
+    allFuturePlanned.sort(function(a,b){return a.month<b.month?-1:1;}).forEach(function(pl){
+      h += '<div class="fc-planned-item">';
+      h += '<div style="display:flex;align-items:center;gap:8px"><span>'+pl.icon+'</span><div><div style="font-size:12px;color:#ccc">'+pl.label+'</div><div style="font-size:9px;color:#555">'+mlabel(pl.month)+'</div></div></div>';
+      h += '<div style="display:flex;align-items:center;gap:6px">';
+      h += '<span style="font-size:13px;font-weight:700;color:'+pl.color+'">'+pl.amount.toLocaleString()+' '+cur+'</span>';
+      h += '<button onclick="editFcPlan(\''+pl.id+'\')" style="background:#2A2D3E;border:none;border-radius:7px;width:26px;height:26px;font-size:12px;cursor:pointer;color:#777">✏️</button>';
+      h += '<button onclick="askDelFcPlan(\''+pl.id+'\')" style="background:#2A2D3E;border:none;border-radius:7px;width:26px;height:26px;font-size:13px;cursor:pointer;color:#555">🗑</button>';
+      h += '</div></div>';
+    });
+    h += '</div>';
+  }
+
+  h += '</div>'; // end padding
+  h += buildFcModal();
+  return h;
+}
+
+// ── FORECAST MODAL ────────────────────────────────────────
+function buildFcModal(){
+  if(!fcModal) return "";
+  var cur = APP.currency;
+  var h = '<div class="modal-bg" onclick="bgClickFc(event)"><div class="modal">';
+  h += '<div class="row" style="margin-bottom:16px">';
+
+  if(fcModal === "addPlan" || fcModal === "editPlan"){
+    var isEd = fcModal === "editPlan";
+    h += '<span style="font-size:16px;font-weight:800">'+(isEd?"✏️ تعديل المخطط":"📦 إضافة مخطط / نفقة")+'</span>';
+    h += '<button onclick="closeFcModal()" style="background:#1E2030;border:none;border-radius:99px;width:30px;height:30px;color:#888;cursor:pointer;font-size:16px">✕</button></div>';
+
+    h += '<label class="lbl">الاسم</label>';
+    h += '<input class="inp" type="text" placeholder="مثل: تلفاز، سفرة عيد، بدلة..." value="'+fcPlanLabel+'" oninput="fcPlanLabel=this.value"/>';
+    h += '<label class="lbl">الشهر</label>';
+    // Month selector
+    var nowM = tm();
+    var nowYear = nowM.slice(0,4);
+    var mnAr = ["يناير","فبراير","مارس","أبريل","ماي","يونيو","يوليوز","غشت","شتنبر","أكتوبر","نونبر","دجنبر"];
+    var curMoN = parseInt(nowM.slice(5,7));
+    h += '<div style="display:flex;flex-wrap:wrap;gap:6px;margin-bottom:12px">';
+    for(var mi = curMoN; mi <= 12; mi++){
+      var mStr = (mi < 10 ? "0" : "") + mi;
+      var mkOpt = nowYear + "-" + mStr;
+      var sel = fcPlanMonth === mkOpt;
+      h += '<div class="chip'+(sel?" selected":"")+'" onclick="setFcMonth(\''+mkOpt+'\')">'+mnAr[mi-1]+'</div>';
+    }
+    h += '</div>';
+
+    h += '<label class="lbl">الأيقونة</label>';
+    h += '<div style="display:flex;flex-wrap:wrap;gap:6px;margin-bottom:12px">';
+    ICONS.forEach(function(ic){
+      h += '<button onclick="setFcIcon(\''+ic+'\')" style="background:'+(fcPlanIcon===ic?"#B8B5FF22":"#1E2030")+';border:2px solid '+(fcPlanIcon===ic?"#B8B5FF":"transparent")+';border-radius:9px;padding:7px 9px;font-size:19px;cursor:pointer">'+ic+'</button>';
+    });
+    h += '</div>';
+
+    h += '<label class="lbl">اللون</label>';
+    h += '<div style="display:flex;gap:7px;flex-wrap:wrap;margin-bottom:14px">';
+    COLS.forEach(function(c){
+      h += '<button onclick="setFcCol(\''+c+'\')" style="width:30px;height:30px;border-radius:99px;background:'+c+';border:'+(fcPlanCol===c?"3px solid #fff":"3px solid transparent")+';cursor:pointer"></button>';
+    });
+    h += '</div>';
+
+    h += '<label class="lbl">المبلغ المتوقع ('+cur+')</label>';
+    h += '<div style="font-size:36px;font-weight:900;color:'+(fcPlanAmount?"#fff":"#333")+';text-align:center;margin-bottom:10px">'+(fcPlanAmount||"0")+' <span style="font-size:13px;color:#555">'+cur+'</span></div>';
+    h += '<div class="numpad">';
+    ["1","2","3","4","5","6","7","8","9",".","0","⌫"].forEach(function(k){
+      h += '<button class="nk'+(k==="⌫"?" del":"")+'" onclick="nkFc(\''+k+'\')">'+k+'</button>';
+    });
+    h += '</div>';
+    h += '<button onclick="saveFcPlan()" class="btn-main">'+(isEd?"حفظ التعديل ✓":"إضافة المخطط ✓")+'</button>';
+  }
+  else if(fcModal === "confirmDel"){
+    h += '<span style="font-size:16px;font-weight:800">🗑️ حذف المخطط</span>';
+    h += '<button onclick="closeFcModal()" style="background:#1E2030;border:none;border-radius:99px;width:30px;height:30px;color:#888;cursor:pointer;font-size:16px">✕</button></div>';
+    h += '<div style="font-size:14px;color:#ccc;text-align:center;margin:20px 0">هل تريد حذف هذا المخطط؟</div>';
+    h += '<div style="display:flex;gap:10px">';
+    h += '<button onclick="doDelFcPlan()" style="flex:1;background:#FF6B6B;border:none;border-radius:13px;padding:14px;color:#fff;font-size:15px;font-weight:800;cursor:pointer;font-family:Cairo,sans-serif">نعم، احذف</button>';
+    h += '<button onclick="closeFcModal()" style="flex:1;background:#1E2030;border:none;border-radius:13px;padding:14px;color:#888;font-size:15px;cursor:pointer;font-family:Cairo,sans-serif">إلغاء</button>';
+    h += '</div>';
+  }
+
+  h += '</div></div>';
+  return h;
+}
+
+// ── FORECAST ACTIONS ──────────────────────────────────────
+function openFcModal(m, mkHint){
+  fcModal = m;
+  if(m === "addPlan"){
+    fcEditId = null;
+    fcPlanLabel = ""; fcPlanIcon = "📦"; fcPlanCol = "#FFD166"; fcPlanAmount = "";
+    fcPlanMonth = mkHint || addMonths(tm(), 1);
+  }
+  render();
+}
+function closeFcModal(){ fcModal = null; render(); }
+function bgClickFc(e){ if(e.target===e.currentTarget){ fcModal=null; render(); } }
+function setFcIcon(ic){ fcPlanIcon = ic; render(); }
+function setFcCol(c){ fcPlanCol = c; render(); }
+function setFcMonth(mk){ fcPlanMonth = mk; render(); }
+function nkFc(k){
+  if(k==="⌫"){ fcPlanAmount = fcPlanAmount.slice(0,-1); }
+  else if(k==="." && fcPlanAmount.includes(".")){ return; }
+  else if(fcPlanAmount.length >= 9){ return; }
+  else { fcPlanAmount += k; }
+  render();
+}
+function saveFcPlan(){
+  if(!fcPlanLabel.trim()){ toast("أدخل الاسم","e"); return; }
+  if(!fcPlanMonth){ toast("اختر الشهر","e"); return; }
+  var v = parseFloat(fcPlanAmount);
+  if(isNaN(v) || v <= 0){ toast("أدخل مبلغاً صحيحاً","e"); return; }
+  if(!APP.planned) APP.planned = [];
+  if(fcEditId){
+    APP.planned = APP.planned.map(function(p){
+      if(p.id !== fcEditId) return p;
+      return {id:p.id, label:fcPlanLabel.trim(), amount:v, icon:fcPlanIcon, color:fcPlanCol, month:fcPlanMonth};
+    });
+    toast("تم التعديل ✓");
+  } else {
+    APP.planned.push({
+      id: Date.now() + "_" + Math.random().toString(36).slice(2),
+      label: fcPlanLabel.trim(), amount: v,
+      icon: fcPlanIcon, color: fcPlanCol, month: fcPlanMonth
+    });
+    toast("تمت إضافة المخطط ✓");
+  }
+  save(); fcModal = null; fcEditId = null; render();
+}
+function editFcPlan(pid){
+  var pl = (APP.planned||[]).find(function(p){return p.id===pid;});
+  if(!pl) return;
+  fcEditId = pid;
+  fcPlanLabel = pl.label; fcPlanIcon = pl.icon; fcPlanCol = pl.color;
+  fcPlanAmount = String(pl.amount); fcPlanMonth = pl.month;
+  fcModal = "editPlan";
+  render();
+}
+function askDelFcPlan(pid){ fcPendingDelId = pid; fcModal = "confirmDel"; render(); }
+function doDelFcPlan(){
+  APP.planned = (APP.planned||[]).filter(function(p){return p.id !== fcPendingDelId;});
+  save(); fcModal = null; toast("تم الحذف","e"); render();
 }
 
 // ── SULAF HELPERS ─────────────────────────────────────────
@@ -513,7 +835,7 @@ function doDelTx(){
 }
 
 // ═══════════════════════════════════════════════════════════
-// BUDGET PAGE (original, complete)
+// BUDGET PAGE
 // ═══════════════════════════════════════════════════════════
 function pageBudget(){
   var md=gm(curM);
@@ -618,21 +940,19 @@ function pageBudget(){
     if(isUnlocked())h+='<button onclick="reLockNow()" style="flex:1;background:#FF6B6B15;border:1.5px solid #FF6B6B44;border-radius:11px;padding:9px;color:#FF8B94;font-size:11px;cursor:pointer;font-family:Cairo,sans-serif">🔒 إعادة قفل</button>';
     h+='</div><div style="font-size:10px;color:#444">✓ كلمة المرور مضبوطة — تُطلب عند محاولة تعديل الشهر المقفل</div>';}
     h+='</div></div>';
-    // ── مخطط خطي ثلاثي المحاور ──────────────────────────────
+    // Chart
     (function(){
       var curYear=now.slice(0,4);
       var mShortAr=["ي","ف","م","أ","م","يو","يز","غ","ش","أك","ن","د"];
       var curMoIdx=parseInt(now.slice(5,7))-1;
-      // معرفات المصاريف المبرمجة (DC الافتراضية + المتكررة)
       var dcIds=DC.map(function(d){return d.id;});
-      // مصروف مبرمج: DC أو متكرر، أو يدوي أُضيف قبل يوم 11 من نفس الشهر
       function isPlanned(c, mk){
-        if(dcIds.indexOf(c.id)!==-1) return true;  // مصروف DC ثابت
-        if(c.recurringId) return true;              // مصروف متكرر
+        if(dcIds.indexOf(c.id)!==-1) return true;
+        if(c.recurringId) return true;
         var ts=parseInt(c.id);
         if(!isNaN(ts)){
           var yr=parseInt(mk.slice(0,4)), mo=parseInt(mk.slice(5,7))-1;
-          var cutoff=new Date(yr,mo,11,0,0,0,0).getTime(); // منتصف ليل يوم 11
+          var cutoff=new Date(yr,mo,11,0,0,0,0).getTime();
           return ts < cutoff;
         }
         return true;
@@ -684,49 +1004,35 @@ function pageBudget(){
       var incLine=smoothPath(incPts),plnLine=smoothPath(plnPts),totLine=smoothPath(totPts);
       var incArea=areaPath(incPts,baseY);
       h+='<div class="card" style="padding:16px 12px">';
-      // legend
       h+='<div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:10px">';
       h+='<div style="font-size:13px;font-weight:800;color:#ddd">📈 مخطط '+curYear+'</div>';
       h+='<div style="display:flex;gap:10px;font-size:9px;color:#666">';
       h+='<span style="display:flex;align-items:center;gap:3px"><span style="width:14px;height:2.5px;background:#06D6A0;display:inline-block;border-radius:2px"></span>دخل</span>';
       h+='<span style="display:flex;align-items:center;gap:3px"><span style="width:14px;height:2.5px;background:#B8B5FF;display:inline-block;border-radius:2px"></span>مبرمج</span>';
-      h+='<span style="display:flex;align-items:center;gap:3px"><span style="width:14px;height:2px;background:#FF8B94;display:inline-block;border-radius:2px;border-top:1.5px dashed #FF8B94"></span>كلي</span>';
+      h+='<span style="display:flex;align-items:center;gap:3px"><span style="width:14px;height:2px;background:#FF8B94;display:inline-block;border-radius:2px"></span>كلي</span>';
       h+='</div></div>';
       h+='<svg width="100%" viewBox="0 0 '+W+' '+H+'" style="overflow:visible;display:block">';
-      h+='<defs>';
-      h+='<linearGradient id="gInc2" x1="0" y1="0" x2="0" y2="1"><stop offset="0%" stop-color="#06D6A0" stop-opacity="0.22"/><stop offset="100%" stop-color="#06D6A0" stop-opacity="0.01"/></linearGradient>';
-      h+='</defs>';
-      // grid
+      h+='<defs><linearGradient id="gInc2" x1="0" y1="0" x2="0" y2="1"><stop offset="0%" stop-color="#06D6A0" stop-opacity="0.22"/><stop offset="100%" stop-color="#06D6A0" stop-opacity="0.01"/></linearGradient></defs>';
       [0.25,0.5,0.75,1].forEach(function(f){
         var gy=(padT+cH-(f*cH)).toFixed(1);
         h+='<line x1="'+padL+'" y1="'+gy+'" x2="'+(W-padR)+'" y2="'+gy+'" stroke="#2A2D3E" stroke-width="1" stroke-dasharray="3,5"/>';
       });
-      // future zone
       if(curMoIdx<11){
         var futX=xPos(curMoIdx+0.55).toFixed(1);
         h+='<rect x="'+futX+'" y="'+padT+'" width="'+(W-padR-parseFloat(futX)).toFixed(1)+'" height="'+cH+'" fill="#0F1117" opacity="0.5"/>';
       }
-      // current month line
       h+='<line x1="'+xPos(curMoIdx).toFixed(1)+'" y1="'+padT+'" x2="'+xPos(curMoIdx).toFixed(1)+'" y2="'+baseY+'" stroke="#B8B5FF" stroke-width="1" stroke-dasharray="3,3" opacity="0.4"/>';
-      // income area fill
       if(incArea)h+='<path d="'+incArea+'" fill="url(#gInc2)"/>';
-      // total expenses (dashed)
       if(totLine)h+='<path d="'+totLine+'" fill="none" stroke="#FF8B94" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" stroke-dasharray="5,3" opacity="0.8"/>';
-      // planned expenses
       if(plnLine)h+='<path d="'+plnLine+'" fill="none" stroke="#B8B5FF" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"/>';
-      // income (top)
       if(incLine)h+='<path d="'+incLine+'" fill="none" stroke="#06D6A0" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"/>';
-      // dots + labels
       months.forEach(function(m,i){
         var x=xPos(i).toFixed(1);
         var lCol=m.isFuture?"#2A2D3E":(m.mi===curMoIdx?"#B8B5FF":"#444");
         h+='<text x="'+x+'" y="'+(H-5)+'" text-anchor="middle" font-size="8.5" fill="'+lCol+'" font-weight="'+(m.mi===curMoIdx?700:400)+'" font-family="Cairo,sans-serif">'+mShortAr[i]+'</text>';
         if(m.hasData){
-          // income dot
           h+='<circle cx="'+x+'" cy="'+yPos(m.ti).toFixed(1)+'" r="3.5" fill="#06D6A0" stroke="#151720" stroke-width="1.5"/>';
-          // planned dot
           h+='<circle cx="'+x+'" cy="'+yPos(m.tp).toFixed(1)+'" r="3.5" fill="#B8B5FF" stroke="#151720" stroke-width="1.5"/>';
-          // total dot (smaller)
           h+='<circle cx="'+x+'" cy="'+yPos(m.tc).toFixed(1)+'" r="2.5" fill="#FF8B94" stroke="#151720" stroke-width="1.5"/>';
           if(m.mi===curMoIdx){
             h+='<circle cx="'+x+'" cy="'+yPos(m.ti).toFixed(1)+'" r="6" fill="none" stroke="#06D6A0" stroke-width="1.5" opacity="0.5"/>';
@@ -762,7 +1068,6 @@ function pageBudget(){
     h+='<button onclick="openModal(\'import\')" style="width:100%;background:#1a1a0a;border:1.5px solid #FFD16644;border-radius:12px;padding:12px;color:#FFD166;font-size:13px;font-weight:700;cursor:pointer;font-family:Cairo,sans-serif;margin-bottom:8px">📥 استيراد نسخة احتياطية</button>';
     h+='<button onclick="openModal(\'confirmClear\')" style="width:100%;background:#FF6B6B15;border:1.5px solid #FF6B6B33;border-radius:13px;padding:12px;color:#FF6B6B;font-size:13px;font-weight:700;cursor:pointer;font-family:Cairo,sans-serif">🗑️ مسح جميع البيانات</button>';
     h+='</div>';
-    // قسم إدارة المصاريف المتكررة
     h+='<div class="card" style="border:1px solid #B8B5FF22"><div style="font-size:11px;color:#B8B5FF;margin-bottom:8px;font-weight:700">🔄 المصاريف المتكررة</div>';
     if(!APP.recurring || APP.recurring.length===0){
       h+='<div style="font-size:11px;color:#555;text-align:center;padding:10px">لا توجد مصاريف متكررة مضافة</div>';
@@ -778,25 +1083,204 @@ function pageBudget(){
       });
     }
     h+='</div>';
+    // ── توقعات الميزانية القادمة ──────────────────────────
+    h+=buildForecast();
   }
   h+='</div>';
   h+=buildModal();
   return h;
 }
 
+// ── FORECAST ──────────────────────────────────────────────
+function buildForecast(){
+  var nextMk = addMonths(curM, 1);
+  var nextMo = nextMk.split("-")[1];
+  var nextYear = nextMk.split("-")[0];
+  var cur = APP.currency;
+  var mnMap = {"01":"يناير","02":"فبراير","03":"مارس","04":"أبريل","05":"ماي","06":"يونيو","07":"يوليوز","08":"غشت","09":"شتنبر","10":"أكتوبر","11":"نونبر","12":"دجنبر"};
+
+  // ── حساب الدخل المتوقع ──
+  // نبدأ من الدخل الافتراضي
+  var fIncomes = DI.map(function(i){ return {id:i.id, label:i.label, amount:i.amount, icon:i.icon, color:i.color, source:"default"}; });
+
+  // ── حساب المصاريف المتوقعة ──
+  var fCharges = [];
+
+  // 1. من DC الثابتة
+  DC.forEach(function(c){
+    if(c.skipMonths && c.skipMonths.indexOf(nextMo) !== -1) return;
+    if(c.onlyMonths && c.onlyMonths.indexOf(nextMo) === -1) return;
+    fCharges.push({id:c.id, label:c.label, amount:c.amount, icon:c.icon, color:c.color, source:"fixed"});
+  });
+
+  // 2. من المصاريف المتكررة
+  if(APP.recurring){
+    APP.recurring.forEach(function(rec){
+      if(mkCmp(nextMk, rec.startMonth) < 0) return;
+      var recYear = rec.startMonth.split("-")[0];
+      var add = false;
+      if(rec.type === "monthly")       add = (nextYear === recYear);
+      else if(rec.type === "yearly")   add = (nextMo === (rec.yearlyMonth || rec.startMonth.split("-")[1]));
+      else if(rec.type === "months")   add = (nextYear === recYear && rec.months && rec.months.indexOf(nextMo) !== -1);
+      if(add){
+        // تجنب التكرار مع DC إذا كان له نفس الـ id
+        var alreadyExists = fCharges.some(function(c){ return c.id === rec.id; });
+        if(!alreadyExists){
+          fCharges.push({id:rec.id, label:rec.label, amount:rec.amount, icon:rec.icon, color:rec.color, source:"recurring"});
+        }
+      }
+    });
+  }
+
+  // ── العجز المُرحَّل ──
+  var curDeficit = getDeficit(nextMk); // عجز الشهر الحالي (curM) سيُرحَّل لـ nextMk
+  // نحسبه يدوياً من curM
+  var cmdLocal = APP.months[curM];
+  var carryover = 0;
+  if(cmdLocal){
+    var ti0 = cmdLocal.incomes.filter(function(i){return i.id!=="deficit_deduct";}).reduce(function(s,i){return s+i.amount;},0);
+    var tc0 = cmdLocal.charges.reduce(function(s,c){return s+c.amount;},0);
+    var surp0 = ti0 - tc0;
+    if(surp0 < 0) carryover = Math.abs(surp0);
+  }
+
+  var totalInc = fIncomes.reduce(function(s,i){return s+i.amount;},0);
+  var totalChg = fCharges.reduce(function(s,c){return s+c.amount;},0);
+  var netInc = totalInc - carryover; // الدخل الفعلي بعد خصم العجز
+  var surplus = netInc - totalChg;
+  var ratio = netInc > 0 ? Math.min((totalChg/netInc)*100, 100) : 100;
+  var surplusColor = surplus >= 0 ? "#06D6A0" : "#FF6B6B";
+
+  // تصنيفات المصاريف حسب الأهمية
+  var fixedCharges = fCharges.filter(function(c){return c.source==="fixed";});
+  var recurringCharges = fCharges.filter(function(c){return c.source==="recurring";});
+
+  var h = '';
+  h += '<div class="card" style="border:1.5px solid #FFD16633;background:linear-gradient(135deg,#1a1a08,#1E2030);margin-top:4px">';
+
+  // العنوان
+  h += '<div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:14px">';
+  h += '<div>';
+  h += '<div style="font-size:13px;font-weight:900;color:#FFD166;margin-bottom:2px">🔭 توقع الشهر القادم</div>';
+  h += '<div style="font-size:10px;color:#666">' + (mnMap[nextMo]||nextMo) + ' ' + nextYear + '</div>';
+  h += '</div>';
+  h += '<div style="background:#FFD16618;border:1px solid #FFD16633;border-radius:10px;padding:5px 10px;text-align:center">';
+  h += '<div style="font-size:18px;font-weight:900;color:'+surplusColor+'">' + (surplus>=0?"+":"") + surplus.toLocaleString() + '</div>';
+  h += '<div style="font-size:9px;color:#555">' + cur + ' متوقع</div>';
+  h += '</div>';
+  h += '</div>';
+
+  // شريط التوقع
+  h += '<div style="margin-bottom:12px">';
+  h += '<div style="display:flex;justify-content:space-between;font-size:10px;color:#666;margin-bottom:4px">';
+  h += '<span>💰 دخل متوقع: <b style="color:#06D6A0">' + totalInc.toLocaleString() + ' ' + cur + '</b></span>';
+  h += '<span>📤 مصاريف: <b style="color:#FF8B94">' + totalChg.toLocaleString() + ' ' + cur + '</b></span>';
+  h += '</div>';
+  h += '<div class="bar-t"><div class="bar-f" style="width:'+ratio.toFixed(1)+'%;background:'+surplusColor+'"></div></div>';
+  if(carryover > 0){
+    h += '<div style="font-size:10px;color:#FF8B94;margin-top:4px">⚠️ يُرحَّل عجز ' + carryover.toLocaleString() + ' ' + cur + ' من الشهر الحالي</div>';
+  }
+  h += '</div>';
+
+  // جدول المصاريف المتوقعة
+  h += '<div style="border-top:1px solid #2A2D3E;padding-top:10px">';
+
+  if(fixedCharges.length > 0){
+    h += '<div style="font-size:10px;color:#888;margin-bottom:6px;font-weight:700">📌 المصاريف الثابتة (' + fixedCharges.length + ')</div>';
+    fixedCharges.sort(function(a,b){return b.amount-a.amount;}).forEach(function(c){
+      h += '<div style="display:flex;align-items:center;justify-content:space-between;padding:5px 0;border-bottom:1px solid #1a1c28">';
+      h += '<div style="display:flex;align-items:center;gap:7px">';
+      h += '<span style="font-size:15px">'+c.icon+'</span>';
+      h += '<span style="font-size:12px;color:#bbb">'+c.label+'</span>';
+      h += '</div>';
+      h += '<span style="font-size:12px;font-weight:700;color:'+c.color+'">'+c.amount.toLocaleString()+' <span style="font-size:9px;color:#444">'+cur+'</span></span>';
+      h += '</div>';
+    });
+  }
+
+  if(recurringCharges.length > 0){
+    h += '<div style="font-size:10px;color:#888;margin-bottom:6px;font-weight:700;margin-top:'+(fixedCharges.length>0?"10px":"0")+'">🔄 المصاريف المتكررة (' + recurringCharges.length + ')</div>';
+    recurringCharges.sort(function(a,b){return b.amount-a.amount;}).forEach(function(c){
+      h += '<div style="display:flex;align-items:center;justify-content:space-between;padding:5px 0;border-bottom:1px solid #1a1c28">';
+      h += '<div style="display:flex;align-items:center;gap:7px">';
+      h += '<span style="font-size:15px">'+c.icon+'</span>';
+      h += '<span style="font-size:12px;color:#bbb">'+c.label+'</span>';
+      h += '<span style="font-size:9px;color:#B8B5FF;background:#B8B5FF15;border-radius:6px;padding:1px 5px">متكرر</span>';
+      h += '</div>';
+      h += '<span style="font-size:12px;font-weight:700;color:'+c.color+'">'+c.amount.toLocaleString()+' <span style="font-size:9px;color:#444">'+cur+'</span></span>';
+      h += '</div>';
+    });
+  }
+
+  if(fCharges.length === 0){
+    h += '<div style="text-align:center;padding:10px;font-size:11px;color:#444">لا توجد مصاريف مبرمجة لهذا الشهر</div>';
+  }
+
+  // ملخص نهائي
+  h += '<div style="background:#0F1117;border-radius:10px;padding:10px 12px;margin-top:10px">';
+  h += '<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:5px">';
+  h += '<span style="font-size:11px;color:#666">إجمالي الدخل المتوقع</span>';
+  h += '<span style="font-size:13px;font-weight:800;color:#06D6A0">'+totalInc.toLocaleString()+' '+cur+'</span>';
+  h += '</div>';
+  if(carryover > 0){
+    h += '<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:5px">';
+    h += '<span style="font-size:11px;color:#666">← عجز مُرحَّل</span>';
+    h += '<span style="font-size:13px;font-weight:800;color:#FF8B94">-'+carryover.toLocaleString()+' '+cur+'</span>';
+    h += '</div>';
+    h += '<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:5px;border-top:1px dashed #2A2D3E;padding-top:5px">';
+    h += '<span style="font-size:11px;color:#666">الدخل الصافي</span>';
+    h += '<span style="font-size:13px;font-weight:800;color:'+(netInc>=0?"#74B9FF":"#FF8B94")+'">'+netInc.toLocaleString()+' '+cur+'</span>';
+    h += '</div>';
+  }
+  h += '<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:5px">';
+  h += '<span style="font-size:11px;color:#666">إجمالي المصاريف</span>';
+  h += '<span style="font-size:13px;font-weight:800;color:#FF8B94">'+totalChg.toLocaleString()+' '+cur+'</span>';
+  h += '</div>';
+  h += '<div style="display:flex;justify-content:space-between;align-items:center;border-top:1px solid #2A2D3E;padding-top:8px;margin-top:3px">';
+  h += '<span style="font-size:12px;color:#aaa;font-weight:700">الفائض / العجز المتوقع</span>';
+  h += '<span style="font-size:15px;font-weight:900;color:'+surplusColor+'">'+(surplus>=0?"+":"")+surplus.toLocaleString()+' '+cur+'</span>';
+  h += '</div>';
+  h += '</div>';
+
+  // نصيحة
+  if(surplus > 0){
+    h += '<div style="margin-top:8px;background:#06D6A015;border-radius:9px;padding:8px 11px;font-size:11px;color:#06D6A0;line-height:1.6">';
+    h += '💡 يُقدَّر وجود فائض <b>'+surplus.toLocaleString()+'</b> '+cur+' في الشهر القادم — يمكن تخصيص جزء للادخار';
+    h += '</div>';
+  } else if(surplus < 0){
+    h += '<div style="margin-top:8px;background:#FF6B6B15;border-radius:9px;padding:8px 11px;font-size:11px;color:#FF8B94;line-height:1.6">';
+    h += '⚠️ تحذير: يُتوقع عجز <b>'+Math.abs(surplus).toLocaleString()+'</b> '+cur+' — راجع مصاريفك القادمة';
+    h += '</div>';
+  }
+
+  h += '</div>'; // border-top wrapper
+  h += '</div>'; // card
+
+  return h;
+}
+
 // ── ITEM ROW ──────────────────────────────────────────────
 function itemRow(item,cur,showPaid,locked){
-  var h='<div class="irow" style="background:'+(showPaid&&item.paid?"#0d1f0d":"#1E2030")+';opacity:'+(showPaid&&item.paid?.75:1)+';border-right:3px solid '+(showPaid&&item.paid?"#06D6A0":item.color)+'">';
-  h+='<div style="display:flex;align-items:center;gap:8px;flex:1">';
+  var logOpen=!!expandedLog[item.id];
+  var hasLog=item.log&&item.log.length>0;
+  var hasComment=!!(item.comment&&item.comment.trim());
+  var wrapId="irow_"+item.id;
+
+  var h='<div id="'+wrapId+'" style="background:'+(showPaid&&item.paid?"#0d1f0d":"#1E2030")+';border-radius:13px;margin-bottom:7px;border-right:3px solid '+(showPaid&&item.paid?"#06D6A0":item.color)+';overflow:hidden">';
+
+  // ── main row ──
+  h+='<div style="display:flex;align-items:center;padding:10px 12px;gap:8px">';
   if(showPaid){
     if(!locked){h+='<button onclick="togglePaid(\''+item.id+'\')" style="background:'+(item.paid?"#06D6A033":"transparent")+';border:2px solid '+(item.paid?"#06D6A0":"#333")+';border-radius:99px;width:26px;height:26px;cursor:pointer;color:#06D6A0;font-size:13px;flex-shrink:0">'+(item.paid?"✓":"")+'</button>';}
     else{h+='<div style="border:2px solid #333;border-radius:99px;width:26px;height:26px;display:flex;align-items:center;justify-content:center;color:#06D6A0;font-size:13px;flex-shrink:0;opacity:.5">'+(item.paid?"✓":"")+'</div>';}
   }
   h+='<span style="font-size:18px">'+item.icon+'</span>';
-  h+='<div><div style="font-size:13px;color:'+(showPaid&&item.paid?"#aaa":"#ccc")+'">'+item.label+'</div>';
+  h+='<div style="flex:1;min-width:0">';
+  h+='<div style="font-size:13px;color:'+(showPaid&&item.paid?"#aaa":"#ccc")+';white-space:nowrap;overflow:hidden;text-overflow:ellipsis">'+item.label+'</div>';
   if(showPaid&&item.paid)h+='<div style="font-size:10px;color:#06D6A0">✓ تم الدفع'+(item.paidAt?' — <span style="color:#3a7a5a">'+item.paidAt+'</span>':'')+'</div>';
-  h+='</div></div>';
-  h+='<div style="display:flex;align-items:center;gap:7px">';
+  if(hasComment)h+='<div style="font-size:10px;color:#888;margin-top:2px;font-style:italic">💬 '+item.comment+'</div>';
+  h+='</div>';
+  h+='<div style="display:flex;align-items:center;gap:6px;flex-shrink:0">';
   h+='<span style="font-size:14px;font-weight:800;color:'+(showPaid&&item.paid?"#444":item.color)+'">'+item.amount.toLocaleString()+' '+cur+'</span>';
   if(!locked){
     h+='<button onclick="openEdit(\''+item.id+'\',\''+(showPaid?"charge":"income")+'\')" style="background:#2A2D3E;border:none;border-radius:7px;width:26px;height:26px;font-size:12px;cursor:pointer;color:#777">✏️</button>';
@@ -804,12 +1288,34 @@ function itemRow(item,cur,showPaid,locked){
   } else {
     h+='<span style="font-size:14px;opacity:.25">🔒</span>';
   }
+  // log toggle button
+  if(hasLog){
+    h+='<button onclick="toggleLog(\''+item.id+'\')" style="background:'+(logOpen?"#B8B5FF22":"#2A2D3E")+';border:none;border-radius:7px;width:26px;height:26px;font-size:11px;cursor:pointer;color:'+(logOpen?"#B8B5FF":"#555")+'" title="السجل">📋'+'</button>';
+  }
   h+='</div></div>';
+
+  // ── log panel ──
+  if(logOpen&&hasLog){
+    var entries=item.log.slice().reverse(); // newest first
+    h+='<div style="background:#12141f;border-top:1px solid #2A2D3E;padding:8px 12px">';
+    h+='<div style="font-size:10px;color:#B8B5FF;font-weight:700;margin-bottom:6px">📋 سجل التغييرات</div>';
+    entries.forEach(function(e){
+      var ic=e.action==="إضافة"?"🟢":e.action==="تعديل"?"🟡":e.action==="حذف"?"🔴":e.action==="ملاحظة"?"💬":"⚪";
+      h+='<div style="display:flex;gap:7px;align-items:flex-start;padding:4px 0;border-bottom:1px solid #1a1c28">';
+      h+='<span style="font-size:13px;flex-shrink:0">'+ic+'</span>';
+      h+='<div style="flex:1">';
+      h+='<span style="font-size:11px;color:#ccc;font-weight:700">'+e.action+'</span>';
+      if(e.detail)h+=' <span style="font-size:11px;color:#666">— '+e.detail+'</span>';
+      h+='<div style="font-size:9px;color:#444;margin-top:1px">'+e.at+'</div>';
+      h+='</div></div>';
+    });
+    h+='</div>';
+  }
+
+  h+='</div>'; // wrap
   return h;
 }
-
-// ── NUMPAD ────────────────────────────────────────────────
-
+function toggleLog(id){expandedLog[id]=!expandedLog[id];render();}
 
 // ── CALC HELPERS ─────────────────────────────────────────
 function evalNumVal(){
@@ -836,7 +1342,6 @@ function numpad(){
   h+='</div>';
   return h;
 }
-// ── NUM DISPLAY ──────────────────────────────────────────
 function buildNumDisplay(activeCol){
   var h='<div style="text-align:center;margin-bottom:10px;min-height:58px">';
   var hasOp=hasOperator();
@@ -851,7 +1356,7 @@ function buildNumDisplay(activeCol){
   h+='</div>';
   return h;
 }
-// ── BUDGET MODAL (معدلة لتشمل التكرار) ─────────────────
+// ── BUDGET MODAL ─────────────────────────────────────────
 function buildModal(){
   if(!modal)return"";
   var h='<div class="modal-bg" onclick="bgClick(event)"><div class="modal">';
@@ -872,15 +1377,9 @@ function buildModal(){
       h+='</div><label class="lbl">اللون</label><div style="display:flex;gap:7px;flex-wrap:wrap;margin-bottom:18px">';
       COLS.forEach(function(c){h+='<button onclick="setCol(\''+c+'\')" style="width:30px;height:30px;border-radius:99px;background:'+c+';border:'+(numCol===c?"3px solid #fff":"3px solid transparent")+';cursor:pointer"></button>';});
       h+='</div>';
-      // خيارات التكرار
       h+='<label class="lbl">نوع التكرار</label>';
       h+='<div style="display:flex;gap:7px;margin-bottom:12px">';
-      var types = [
-        {v:"none",l:"مرة واحدة"},
-        {v:"monthly",l:"شهري"},
-        {v:"yearly",l:"سنوي"},
-        {v:"months",l:"أشهر محددة"}
-      ];
+      var types = [{v:"none",l:"مرة واحدة"},{v:"monthly",l:"شهري"},{v:"yearly",l:"سنوي"},{v:"months",l:"أشهر محددة"}];
       types.forEach(function(t){
         var sel = recurType===t.v;
         h+='<button onclick="setRecurType(\''+t.v+'\')" style="flex:1;padding:8px 0;border-radius:11px;font-size:11px;cursor:pointer;font-family:Cairo,sans-serif;background:'+(sel?"#B8B5FF22":"#1E2030")+';border:1.5px solid '+(sel?"#B8B5FF":"#2A2D3E")+';color:'+(sel?"#B8B5FF":"#666")+';font-weight:'+(sel?"700":"400")+'">'+t.l+'</button>';
@@ -888,7 +1387,7 @@ function buildModal(){
       h+='</div>';
       if(recurType==="yearly"){
         h+='<label class="lbl">في أي شهر يتكرر كل سنة؟</label>';
-        h+='<div class="month-select" style="display:flex;flex-wrap:wrap;gap:6px;margin-bottom:14px">';
+        h+='<div class="month-select">';
         var monthsAr2=["يناير","فبراير","مارس","أبريل","ماي","يونيو","يوليوز","غشت","شتنبر","أكتوبر","نونبر","دجنبر"];
         var curMoNum=parseInt(curM.split("-")[1]);
         for(var yi=1;yi<=12;yi++){
@@ -901,7 +1400,7 @@ function buildModal(){
       }
       if(recurType==="months"){
         h+='<label class="lbl">اختر الأشهر القادمة</label>';
-        h+='<div class="month-select" style="display:flex;flex-wrap:wrap;gap:6px;margin-bottom:14px">';
+        h+='<div class="month-select">';
         var monthsAr=["يناير","فبراير","مارس","أبريل","ماي","يونيو","يوليوز","غشت","شتنبر","أكتوبر","نونبر","دجنبر"];
         var curMonthNum=parseInt(curM.split("-")[1]);
         for(var i=1;i<=12;i++){
@@ -920,14 +1419,20 @@ function buildModal(){
       else if(recurType==="yearly"){ var ynMap={"01":"يناير","02":"فبراير","03":"مارس","04":"أبريل","05":"ماي","06":"يونيو","07":"يوليوز","08":"غشت","09":"شتنبر","10":"أكتوبر","11":"نونبر","12":"دجنبر"}; recurLabel=" (سنوي — كل "+(ynMap[recurYearlyMonth]||recurYearlyMonth)+")"; }
       else if(recurType==="months") recurLabel = " (أشهر: "+recurMonths.join("،")+")";
       h+='<div style="font-size:11px;color:#B8B5FF;text-align:center;margin-bottom:4px">'+recurLabel+'</div>';
-      h+=buildNumDisplay("#fff");h+=numpad();h+='<button onclick="saveItem()" class="btn-main" style="margin-bottom:8px">تأكيد ✓</button>';
+      h+=buildNumDisplay("#fff");h+=numpad();
+      h+='<label class="lbl">💬 ملاحظة / سبب (اختياري)</label>';
+      h+='<input id="ncomment" class="inp" type="text" placeholder="مثل: فاتورة يونيو، دفعة مقدمة..." value="'+numComment+'" oninput="numComment=this.value" style="margin-bottom:10px"/>';
+      h+='<button onclick="saveItem()" class="btn-main" style="margin-bottom:8px">تأكيد ✓</button>';
       h+='<button onclick="prevStep()" style="width:100%;background:none;border:none;color:#555;font-size:13px;cursor:pointer;font-family:Cairo,sans-serif;padding:8px">← رجوع</button>';
     }
   }
   else if(modal==="editItem"){
     h+='<span style="font-size:16px;font-weight:800">✏️ تعديل</span><button onclick="closeModal()" style="background:#1E2030;border:none;border-radius:99px;width:30px;height:30px;color:#888;cursor:pointer;font-size:16px">✕</button></div>';
     h+='<label class="lbl">الاسم</label><input id="nlbl" class="inp" type="text" value="'+numLabel+'" oninput="numLabel=this.value"/>';
-    h+=buildNumDisplay("#fff");h+=numpad();h+='<button onclick="saveEdit()" class="btn-main">حفظ التعديل ✓</button>';
+    h+=buildNumDisplay("#fff");h+=numpad();
+    h+='<label class="lbl">💬 ملاحظة على هذا التعديل (اختياري)</label>';
+    h+='<input id="ncomment" class="inp" type="text" placeholder="مثل: تعديل بسبب الزيادة في الأسعار..." value="'+numComment+'" oninput="numComment=this.value" style="margin-bottom:10px"/>';
+    h+='<button onclick="saveEdit()" class="btn-main">حفظ التعديل ✓</button>';
   }
   else if(modal==="import"){
     h+='<span style="font-size:16px;font-weight:800">📥 استيراد نسخة احتياطية</span><button onclick="closeModal()" style="background:#1E2030;border:none;border-radius:99px;width:30px;height:30px;color:#888;cursor:pointer;font-size:16px">✕</button></div>';
@@ -965,20 +1470,15 @@ function buildModal(){
   return h;
 }
 
-// ── BUDGET ACTIONS (معدلة) ────────────────────────────────
-function setCurM(mk){var vis=visibleMonths();if(vis.indexOf(mk)===-1)return;curM=mk;_needScrollChip=true;render();}
+// ── BUDGET ACTIONS ────────────────────────────────────────
+function setCurM(mk){var vis=visibleMonths();if(vis.indexOf(mk)===-1)return;curM=mk;_needScrollChip=true;expandedLog={};render();}
 function setTab(t){curTab=t;render();}
 function setCur(c){APP.currency=c;save();render();}
 function selCur(el){setCur(el.dataset.c);}
 function openModal(m){
   if((m==="addCharge"||m==="addIncome"||m==="savings")&&guardLocked())return;
-  modal=m;numVal="";numStep="info";
-  // إعادة تعيين خيارات التكرار عند فتح نافذة إضافة مصروف
-  if(m==="addCharge"){
-    recurType="none";
-    recurMonths=[];
-    recurYearlyMonth="";
-  }
+  modal=m;numVal="";numStep="info";numComment="";
+  if(m==="addCharge"){recurType="none";recurMonths=[];recurYearlyMonth="";}
   render();
 }
 function closeModal(){modal=null;render();}
@@ -987,14 +1487,12 @@ var _paidTap={id:null,timer:null};
 function togglePaid(id){
   if(guardLocked())return;
   if(_paidTap.id===id){
-    // second tap — confirm
     clearTimeout(_paidTap.timer);
     _paidTap={id:null,timer:null};
     var md=gm(curM);
-    md.charges=md.charges.map(function(c){if(c.id!==id)return c;var nowPaid=!c.paid;return Object.assign({},c,{paid:nowPaid,paidAt:nowPaid?new Date().toLocaleString("ar-MA",{day:"2-digit",month:"2-digit",year:"numeric",hour:"2-digit",minute:"2-digit"}):null});});
+    md.charges=md.charges.map(function(c){if(c.id!==id)return c;var nowPaid=!c.paid;var paidAt=nowPaid?new Date().toLocaleString("ar-MA",{day:"2-digit",month:"2-digit",year:"numeric",hour:"2-digit",minute:"2-digit"}):null;var updated=Object.assign({},c,{paid:nowPaid,paidAt:paidAt});if(!updated.log)updated.log=[];addLog(updated,nowPaid?"تم الدفع":"إلغاء الدفع",nowPaid?"✓ تم تأكيد الدفع في "+paidAt:"↩ تم إلغاء الدفع");return updated;});
     APP.months[curM]=md;save();render();
   } else {
-    // first tap — wait for second
     clearTimeout(_paidTap.timer);
     _paidTap.id=id;
     toast("اضغط مرة ثانية للتأكيد ✓","w");
@@ -1042,7 +1540,9 @@ function saveItem(){
   if(!numLabel.trim()){toast("أدخل الاسم","e");return;}
   if(isNaN(v)||v<=0){toast("أدخل مبلغاً صحيحاً","e");return;}
   var md=gm(curM);
-  var ni={id:Date.now()+"",label:numLabel.trim(),amount:v,icon:numIcon,color:numCol,paid:false};
+  var ni={id:Date.now()+"",label:numLabel.trim(),amount:v,icon:numIcon,color:numCol,paid:false,comment:numComment.trim(),log:[]};
+  var initDetail=v.toLocaleString()+" "+APP.currency+(numComment.trim()?" — "+numComment.trim():"");
+  addLog(ni,"إضافة",initDetail);
   if(modal==="addCharge"){
     var curMo=curM.split("-")[1];
     var addToCurrentMonth=false;
@@ -1051,25 +1551,19 @@ function saveItem(){
     else if(recurType==="yearly")   addToCurrentMonth=(recurYearlyMonth===curMo);
     else if(recurType==="months")   addToCurrentMonth=(recurMonths.indexOf(curMo)!==-1);
     if(addToCurrentMonth) md.charges.push(ni);
-    // إذا كان هناك تكرار، أضف إلى القائمة المتكررة
     if(recurType!=="none"){
       var rec = {
         id: "rec_"+Date.now()+"_"+Math.random().toString(36).slice(2),
-        label: numLabel.trim(),
-        amount: v,
-        icon: numIcon,
-        color: numCol,
-        startMonth: curM,
-        type: recurType,
+        label: numLabel.trim(), amount: v, icon: numIcon, color: numCol,
+        startMonth: curM, type: recurType,
         months: recurType==="months"?recurMonths.slice():[],
         yearlyMonth: recurType==="yearly"?recurYearlyMonth:""
       };
       if(!APP.recurring) APP.recurring = [];
       APP.recurring.push(rec);
-      // تحديث الأشهر الموجودة مسبقاً التي تنطبق عليها القاعدة الجديدة
       var recStartYear = rec.startMonth.split("-")[0];
       Object.keys(APP.months).forEach(function(mk){
-        if(mk === curM) return; // الشهر الحالي تمت معالجته أعلاه
+        if(mk === curM) return;
         if(mkCmp(mk, rec.startMonth) < 0) return;
         var mkYear = mk.split("-")[0];
         var mo2 = mk.split("-")[1];
@@ -1078,17 +1572,11 @@ function saveItem(){
         else if(rec.type==="yearly")   shouldAdd = (mo2 === rec.yearlyMonth);
         else if(rec.type==="months")   shouldAdd = (mkYear === recStartYear && rec.months.indexOf(mo2)!==-1);
         if(!shouldAdd) return;
-        // تحقق أنه غير موجود مسبقاً
         var exists = APP.months[mk].charges.some(function(c){return c.recurringId===rec.id;});
         if(!exists){
           APP.months[mk].charges.push({
-            id: rec.id+"_"+mk,
-            label: rec.label,
-            amount: rec.amount,
-            icon: rec.icon,
-            color: rec.color,
-            paid: false,
-            recurringId: rec.id
+            id: rec.id+"_"+mk, label: rec.label, amount: rec.amount,
+            icon: rec.icon, color: rec.color, paid: false, recurringId: rec.id
           });
         }
       });
@@ -1113,33 +1601,51 @@ function saveSavings(){
 function openEdit(id,type){
   if(guardLocked())return;
   var md=gm(curM);var arr=type==="charge"?md.charges:md.incomes;var item=arr.find(function(x){return x.id===id;});
-  if(!item)return;editId=id;editType=type;numVal=String(item.amount);numLabel=item.label;numIcon=item.icon;numCol=item.color;modal="editItem";render();
+  if(!item)return;editId=id;editType=type;numVal=String(item.amount);numLabel=item.label;numIcon=item.icon;numCol=item.color;numComment=item.comment||"";modal="editItem";render();
 }
 function saveEdit(){
   if(guardLocked())return;
   var v=evalNumVal();if(isNaN(v)||v<=0){toast("أدخل مبلغاً صحيحاً","e");return;}
   var md=gm(curM);var arr=editType==="charge"?md.charges:md.incomes;
-  arr=arr.map(function(x){return x.id===editId?Object.assign({},x,{label:numLabel||x.label,amount:v,icon:numIcon,color:numCol}):x;});
+  arr=arr.map(function(x){
+    if(x.id!==editId)return x;
+    var oldAmt=x.amount;
+    var updated=Object.assign({},x,{label:numLabel||x.label,amount:v,icon:numIcon,color:numCol,comment:numComment.trim()||x.comment});
+    if(!updated.log)updated.log=[];
+    var changes=[];
+    if(oldAmt!==v){var diff=Math.round((v-oldAmt)*100)/100;var diffStr=(diff>0?"+":"")+diff.toLocaleString()+" "+APP.currency;changes.push(oldAmt.toLocaleString()+" → "+v.toLocaleString()+" "+APP.currency+" ("+(diff>0?"▲":"▼")+" "+diffStr+")");}
+
+    if(numComment.trim())changes.push(numComment.trim());
+    addLog(updated,"تعديل",changes.join(" | ")||"بدون ملاحظة");
+    return updated;
+  });
   if(editType==="charge")md.charges=arr;else md.incomes=arr;APP.months[curM]=md;save();modal=null;toast("تم الحفظ ✓");render();
 }
 function askDel(id,type){if(guardLocked())return;pendingDelId=id;pendingDelType=type;modal="confirmDel";render();}
 function doDelItem(){
   if(guardLocked())return;var md=gm(curM);
+  var arr=pendingDelType==="charge"?md.charges:md.incomes;
+  var deleted=arr.find(function(x){return x.id===pendingDelId;});
+  if(deleted){
+    // archive to global deleted log
+    if(!APP.deletedLog)APP.deletedLog=[];
+    var archivedItem=Object.assign({},deleted);
+    addLog(archivedItem,"حذف","تم حذف "+archivedItem.label+" ("+archivedItem.amount.toLocaleString()+" "+APP.currency+") من "+curM);
+    APP.deletedLog.push({month:curM,type:pendingDelType,item:archivedItem,at:nowStamp()});
+  }
   if(pendingDelType==="charge")md.charges=md.charges.filter(function(x){return x.id!==pendingDelId;});
   else md.incomes=md.incomes.filter(function(x){return x.id!==pendingDelId;});
   APP.months[curM]=md;save();modal=null;toast("تم الحذف","e");render();
 }
-function doClear(){APP={currency:"MAD",months:{},persons:[],recurring:[]};save();modal=null;toast("تم مسح جميع البيانات","e");render();}
+function doClear(){APP={currency:"MAD",months:{},persons:[],recurring:[],planned:[]};save();modal=null;toast("تم مسح جميع البيانات","e");render();}
 function doExport(){var d=new Date();var blob=new Blob([JSON.stringify(APP,null,2)],{type:"application/json"});var url=URL.createObjectURL(blob);var a=document.createElement("a");a.href=url;a.download="masarifi_"+d.getFullYear()+"-"+(d.getMonth()+1)+"-"+d.getDate()+".json";a.click();URL.revokeObjectURL(url);toast("تم التصدير ✓");}
 var _importedData=null;
 function onFileChosen(input){var file=input.files[0];if(!file)return;var lbl=document.getElementById("fileNameLabel");if(lbl)lbl.textContent=file.name;var reader=new FileReader();reader.onload=function(e){try{var imp=JSON.parse(e.target.result);if(!imp.months){toast("ملف غير صالح","e");_importedData=null;return;}_importedData=imp;if(lbl)lbl.style.color="#06D6A0";}catch(err){toast("خطأ في قراءة الملف","e");_importedData=null;}};reader.readAsText(file);}
-function doImportFile(){if(!_importedData){toast("اختر ملف JSON أولاً","e");return;}APP=_importedData;if(!APP.persons)APP.persons=[];if(!APP.recurring)APP.recurring=[];_importedData=null;save();modal=null;toast("تم الاستيراد بنجاح ✓");render();}
+function doImportFile(){if(!_importedData){toast("اختر ملف JSON أولاً","e");return;}APP=_importedData;if(!APP.persons)APP.persons=[];if(!APP.recurring)APP.recurring=[];if(!APP.planned)APP.planned=[];_importedData=null;save();modal=null;toast("تم الاستيراد بنجاح ✓");render();}
 function deleteRecurring(recId){
   if(!APP.recurring) return;
   APP.recurring = APP.recurring.filter(function(r){return r.id!==recId;});
-  save();
-  toast("تم حذف المصروف المتكرر","e");
-  render();
+  save();toast("تم حذف المصروف المتكرر","e");render();
 }
 
 // ── PASSWORD ACTIONS ──────────────────────────────────────
@@ -1164,7 +1670,7 @@ function enableNotifs(){Notification.requestPermission().then(function(perm){if(
 function toggleNotifs(){var cur=localStorage.getItem("masarifi_notif")==="1";if(cur){localStorage.setItem("masarifi_notif","0");stopNotifTimer();toast("تم إيقاف التذكيرات","w");}else{localStorage.setItem("masarifi_notif","1");startNotifTimer();toast("تم تفعيل التذكيرات 🔔");}render();}
 
 // ── START ─────────────────────────────────────────────────
-(function(){var vis=visibleMonths();if(vis.indexOf(curM)===-1)curM=tm();})();
+(function(){var vis=visibleMonths();if(vis.indexOf(curM)===-1)curM=tm();if(!APP.planned)APP.planned=[];})();
 render();
 setTimeout(function(){autoBackup();},3000);
 setTimeout(function(){startNotifTimer();},1000);
