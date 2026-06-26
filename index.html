@@ -1279,6 +1279,9 @@ function itemRow(item,cur,showPaid,locked){
   h+='<div style="font-size:13px;color:'+(showPaid&&item.paid?"#aaa":"#ccc")+';white-space:nowrap;overflow:hidden;text-overflow:ellipsis">'+item.label+'</div>';
   if(showPaid&&item.paid)h+='<div style="font-size:10px;color:#06D6A0">✓ تم الدفع'+(item.paidAt?' — <span style="color:#3a7a5a">'+item.paidAt+'</span>':'')+'</div>';
   if(hasComment)h+='<div style="font-size:10px;color:#888;margin-top:2px;font-style:italic">💬 '+item.comment+'</div>';
+  if(item.virtualBalance!==undefined&&item.virtualBalance!==null&&item.virtualBalance!==item.amount){
+    h+='<div style="font-size:10px;color:#FFD166;margin-top:2px">🧮 رصيد توثيقي: '+item.virtualBalance.toLocaleString()+' '+cur+' <span style="color:#555">(غير مؤثر على الميزانية)</span></div>';
+  }
   h+='</div>';
   h+='<div style="display:flex;align-items:center;gap:6px;flex-shrink:0">';
   h+='<span style="font-size:14px;font-weight:800;color:'+(showPaid&&item.paid?"#444":item.color)+'">'+item.amount.toLocaleString()+' '+cur+'</span>';
@@ -1430,9 +1433,12 @@ function buildModal(){
     h+='<span style="font-size:16px;font-weight:800">✏️ تعديل</span><button onclick="closeModal()" style="background:#1E2030;border:none;border-radius:99px;width:30px;height:30px;color:#888;cursor:pointer;font-size:16px">✕</button></div>';
     h+='<label class="lbl">الاسم</label><input id="nlbl" class="inp" type="text" value="'+numLabel+'" oninput="numLabel=this.value"/>';
     h+=buildNumDisplay("#fff");h+=numpad();
+    if(hasOperator()){
+      h+='<div style="background:#FFD16615;border:1px solid #FFD16644;border-radius:10px;padding:8px 11px;font-size:11px;color:#FFD166;margin-bottom:10px;line-height:1.6">🧮 وضع العملية الحسابية: ستُسجَّل هذه العملية في السجل فقط كتوثيق، <b>ولن تُغيّر المبلغ الفعلي</b> في الميزانية</div>';
+    }
     h+='<label class="lbl">💬 ملاحظة على هذا التعديل (اختياري)</label>';
     h+='<input id="ncomment" class="inp" type="text" placeholder="مثل: تعديل بسبب الزيادة في الأسعار..." value="'+numComment+'" oninput="numComment=this.value" style="margin-bottom:10px"/>';
-    h+='<button onclick="saveEdit()" class="btn-main">حفظ التعديل ✓</button>';
+    h+='<button onclick="saveEdit()" class="btn-main">'+(hasOperator()?"تسجيل العملية في السجل ✓":"حفظ التعديل ✓")+'</button>';
   }
   else if(modal==="import"){
     h+='<span style="font-size:16px;font-weight:800">📥 استيراد نسخة احتياطية</span><button onclick="closeModal()" style="background:#1E2030;border:none;border-radius:99px;width:30px;height:30px;color:#888;cursor:pointer;font-size:16px">✕</button></div>';
@@ -1601,25 +1607,41 @@ function saveSavings(){
 function openEdit(id,type){
   if(guardLocked())return;
   var md=gm(curM);var arr=type==="charge"?md.charges:md.incomes;var item=arr.find(function(x){return x.id===id;});
-  if(!item)return;editId=id;editType=type;numVal=String(item.amount);numLabel=item.label;numIcon=item.icon;numCol=item.color;numComment=item.comment||"";modal="editItem";render();
+  if(!item)return;editId=id;editType=type;
+  // إذا كان هناك رصيد افتراضي سابق من عمليات حسابية توثيقية، نبدأ منه؛ وإلا من المبلغ الفعلي
+  numVal=String((item.virtualBalance!==undefined&&item.virtualBalance!==null)?item.virtualBalance:item.amount);
+  numLabel=item.label;numIcon=item.icon;numCol=item.color;numComment=item.comment||"";modal="editItem";render();
 }
 function saveEdit(){
   if(guardLocked())return;
   var v=evalNumVal();if(isNaN(v)||v<=0){toast("أدخل مبلغاً صحيحاً","e");return;}
+  var wasCalc=hasOperator(); // إذا كتب عملية حسابية (مثل 3500+200)
+  var exprText=numVal; // النص الأصلي للعملية كما كُتب
   var md=gm(curM);var arr=editType==="charge"?md.charges:md.incomes;
   arr=arr.map(function(x){
     if(x.id!==editId)return x;
     var oldAmt=x.amount;
-    var updated=Object.assign({},x,{label:numLabel||x.label,amount:v,icon:numIcon,color:numCol,comment:numComment.trim()||x.comment});
+    var oldVirtual=(x.virtualBalance!==undefined&&x.virtualBalance!==null)?x.virtualBalance:oldAmt;
+    // إذا كانت عملية حسابية: المبلغ الفعلي لا يتغير أبداً، فقط نحدّث الرصيد الافتراضي التراكمي
+    // إذا كان رقماً عادياً (بدون عامل): يُحدَّث المبلغ الفعلي كالمعتاد، ويُصفَّر الرصيد الافتراضي
+    var finalAmt = wasCalc ? oldAmt : v;
+    var finalVirtual = wasCalc ? v : null;
+    var updated=Object.assign({},x,{label:numLabel||x.label,amount:finalAmt,virtualBalance:finalVirtual,icon:numIcon,color:numCol,comment:numComment.trim()||x.comment});
     if(!updated.log)updated.log=[];
     var changes=[];
-    if(oldAmt!==v){var diff=Math.round((v-oldAmt)*100)/100;var diffStr=(diff>0?"+":"")+diff.toLocaleString()+" "+APP.currency;changes.push(oldAmt.toLocaleString()+" → "+v.toLocaleString()+" "+APP.currency+" ("+(diff>0?"▲":"▼")+" "+diffStr+")");}
-
+    if(wasCalc){
+      // تسجيل العملية الحسابية انطلاقاً من آخر رصيد افتراضي (وليس من المبلغ الأصلي الثابت)
+      changes.push("🧮 عملية حسابية: "+exprText+" = "+v.toLocaleString()+" "+APP.currency+" (للتوثيق فقط — المبلغ الفعلي لم يتغير: "+oldAmt.toLocaleString()+" "+APP.currency+")");
+    } else if(oldAmt!==v){
+      var diff=Math.round((v-oldAmt)*100)/100;var diffStr=(diff>0?"+":"")+diff.toLocaleString()+" "+APP.currency;
+      changes.push(oldAmt.toLocaleString()+" → "+v.toLocaleString()+" "+APP.currency+" ("+(diff>0?"▲":"▼")+" "+diffStr+")");
+    }
     if(numComment.trim())changes.push(numComment.trim());
-    addLog(updated,"تعديل",changes.join(" | ")||"بدون ملاحظة");
+    addLog(updated,wasCalc?"تسجيل عملية":"تعديل",changes.join(" | ")||"بدون ملاحظة");
     return updated;
   });
-  if(editType==="charge")md.charges=arr;else md.incomes=arr;APP.months[curM]=md;save();modal=null;toast("تم الحفظ ✓");render();
+  if(editType==="charge")md.charges=arr;else md.incomes=arr;APP.months[curM]=md;save();modal=null;
+  toast(wasCalc?"تم تسجيل العملية في السجل (بدون تغيير المبلغ) ✓":"تم الحفظ ✓");render();
 }
 function askDel(id,type){if(guardLocked())return;pendingDelId=id;pendingDelType=type;modal="confirmDel";render();}
 function doDelItem(){
