@@ -1477,15 +1477,19 @@ function buildModal(){
 }
 
 // ── BUDGET ACTIONS ────────────────────────────────────────
-function setCurM(mk){var vis=visibleMonths();if(vis.indexOf(mk)===-1)return;curM=mk;_needScrollChip=true;expandedLog={};render();}
-function setTab(t){curTab=t;render();}
-function setCur(c){APP.currency=c;save();render();}
-function selCur(el){setCur(el.dataset.c);}
-function openModal(m){
-  if((m==="addCharge"||m==="addIncome"||m==="savings")&&guardLocked())return;
-  modal=m;numVal="";numStep="info";numComment="";
-  if(m==="addCharge"){recurType="none";recurMonths=[];recurYearlyMonth="";}
-  render();
+function setCurM(mk){
+  var y=parseInt(mk.slice(0,4)), mo=mk.slice(5,7);
+  // النقرة الثانية على دجنبر وهو محدد: الانتقال إلى السنة التالية
+  if(mo==="12" && y===viewYear && curM===mk){
+    if(y+1>2035){toast("آخر سنة مدعومة","w");return;}
+    viewYear=y+1;
+    curM=viewYear+"-01";
+    _needScrollChip=true;expandedLog={};render();
+    return;
+  }
+  var vis=visibleMonths();
+  if(vis.indexOf(mk)===-1)return;
+  curM=mk;_needScrollChip=true;expandedLog={};render();
 }
 function closeModal(){modal=null;render();}
 function bgClick(e){if(e.target===e.currentTarget){modal=null;render();}}
