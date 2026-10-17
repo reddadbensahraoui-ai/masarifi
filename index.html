@@ -1,42 +1,42 @@
 <!DOCTYPE html>
-<html lang="fr">
+<html lang="ar" dir="rtl">
 <head>
 <meta charset="UTF-8"/>
 <meta name="viewport" content="width=device-width,initial-scale=1"/>
-<title>Mise à jour de مصاريفي</title>
+<title>تحديث مصاريفي</title>
 <style>
-body{font-family:Arial,sans-serif;background:#0F1117;color:#f0f0f0;max-width:480px;margin:0 auto;padding:24px}
+body{font-family:Tahoma,Arial,sans-serif;background:#0F1117;color:#f0f0f0;max-width:480px;margin:0 auto;padding:24px}
 h1{font-size:20px}
 label.btn,button{display:block;width:100%;box-sizing:border-box;text-align:center;background:#8B5CF6;color:#fff;border:none;border-radius:12px;padding:14px;font-size:15px;font-weight:700;cursor:pointer;margin:12px 0}
 button:disabled{opacity:.4;cursor:default}
 input{display:none}
-#log{font-size:13px;line-height:1.8;background:#1E2030;border-radius:12px;padding:12px;min-height:40px;white-space:pre-wrap}
+#log{font-size:13px;line-height:1.9;background:#1E2030;border-radius:12px;padding:12px;min-height:40px;white-space:pre-wrap}
 .ok{color:#06D6A0}.ko{color:#FF6B6B}
 </style>
 </head>
 <body>
-<h1>Mise à jour de مصاريفي</h1>
-<p style="font-size:13px;color:#aaa">Ajoute la navigation vers l'année suivante (clic sur دجنبر).</p>
-<label class="btn" for="f">1. Choisir mon index.html</label>
+<h1>تحديث مصاريفي — الانتقال إلى السنة التالية</h1>
+<p style="font-size:13px;color:#aaa">النقرة الأولى على دجنبر تعرضه، والنقرة الثانية تنقلك إلى يناير من السنة التالية.</p>
+<label class="btn" for="f">1. اختيار ملف index.html</label>
 <input id="f" type="file" accept=".html,.txt,text/html,text/plain"/>
-<button id="go" disabled>2. Appliquer et télécharger</button>
-<div id="log">En attente du fichier…</div>
+<button id="go" disabled>2. تطبيق وتحميل الملف الجديد</button>
+<div id="log">في انتظار الملف…</div>
 <script>
-var PATCHES=[
-["Variable viewYear",
+var FULL=[
+["المتغير viewYear",
 String.raw`var curM=tm();`,
 String.raw`var curM=tm();
 var viewYear=parseInt(tm().slice(0,4));`],
 
-["visibleMonths",
+["الدالة visibleMonths",
 String.raw`function visibleMonths(){var now=tm();var year=now.slice(0,4);var m=[];for(var i=1;i<=12;i++)m.push(year+"-"+(i<10?"0":"")+i);return m;}`,
 String.raw`function visibleMonths(){var m=[];for(var i=1;i<=12;i++)m.push(viewYear+"-"+(i<10?"0":"")+i);return m;}`],
 
-["setCurM, prevYear, goToday",
+["الدوال setCurM و prevYear و goToday",
 String.raw`function setCurM(mk){var vis=visibleMonths();if(vis.indexOf(mk)===-1)return;curM=mk;_needScrollChip=true;expandedLog={};render();}`,
 String.raw`function setCurM(mk){
   var y=parseInt(mk.slice(0,4)), mo=mk.slice(5,7);
-  if(mo==="12" && y===viewYear){
+  if(mo==="12" && y===viewYear && curM===mk){
     if(y+1>2035){toast("آخر سنة مدعومة","w");return;}
     viewYear=y+1;
     curM=viewYear+"-01";
@@ -59,14 +59,20 @@ function goToday(){
   _needScrollChip=true;expandedLog={};render();
 }`],
 
-["Bouton année précédente",
+["زر السنة السابقة",
 String.raw`h+='<div id="months-scroll" style="display:flex;gap:7px;overflow-x:auto;padding:0 20px 12px;scroll-behavior:smooth">';`,
 String.raw`h+='<div id="months-scroll" style="display:flex;gap:7px;overflow-x:auto;padding:0 20px 12px;scroll-behavior:smooth">';
   if(viewYear>2024)h+='<div class="chip" style="color:#B8B5FF;border-color:#B8B5FF55" onclick="prevYear()">‹ '+(viewYear-1)+'</div>';`],
 
-["Bouton date du jour",
+["زر تاريخ اليوم",
 String.raw`onclick="setCurM(tm())"`,
 String.raw`onclick="goToday()"`]
+];
+
+var UPGRADE=[
+["تحويل الشرط إلى نقرتين",
+String.raw`if(mo==="12" && y===viewYear){`,
+String.raw`if(mo==="12" && y===viewYear && curM===mk){`]
 ];
 
 var src="";
@@ -74,22 +80,26 @@ var f=document.getElementById("f"),go=document.getElementById("go"),log=document
 f.onchange=function(){
   var file=f.files[0];if(!file)return;
   var r=new FileReader();
-  r.onload=function(e){src=e.target.result;go.disabled=false;log.textContent="Fichier chargé : "+file.name+" ("+src.length+" caractères)";};
+  r.onload=function(e){src=e.target.result;go.disabled=false;log.textContent="تم تحميل الملف: "+file.name;};
   r.readAsText(file,"UTF-8");
 };
 go.onclick=function(){
   var out=src,lines=[],bad=0;
-  if(out.indexOf("var viewYear=")!==-1){log.innerHTML='<span class="ko">Ce fichier contient déjà la modification (viewYear).</span>';return;}
-  PATCHES.forEach(function(p){
+  var patches;
+  if(out.indexOf("var viewYear=")!==-1){
+    if(out.indexOf('y===viewYear && curM===mk')!==-1){log.innerHTML='<span class="ok">الملف محدَّث بالفعل بطريقة النقرتين، لا يلزم أي تعديل.</span>';return;}
+    patches=UPGRADE;lines.push("الملف يحتوي التعديل القديم، سيتم تحويله إلى طريقة النقرتين.");
+  } else {patches=FULL;}
+  patches.forEach(function(p){
     var n=out.split(p[1]).length-1;
     if(n===1){out=out.split(p[1]).join(p[2]);lines.push('<span class="ok">✓ '+p[0]+'</span>');}
-    else{bad++;lines.push('<span class="ko">✗ '+p[0]+' : '+(n===0?"texte introuvable":"trouvé "+n+" fois")+'</span>');}
+    else{bad++;lines.push('<span class="ko">✗ '+p[0]+' : '+(n===0?"النص غير موجود":"موجود "+n+" مرات")+'</span>');}
   });
   log.innerHTML=lines.join("\n");
-  if(bad){log.innerHTML+='\n\n<span class="ko">Aucun fichier téléchargé : une modification n\'a pas pu être appliquée.</span>';return;}
+  if(bad){log.innerHTML+='\n\n<span class="ko">لم يتم تحميل أي ملف لأن أحد التعديلات لم يُطبَّق.</span>';return;}
   var blob=new Blob([out],{type:"text/html;charset=utf-8"});
   var a=document.createElement("a");a.href=URL.createObjectURL(blob);a.download="index.html";a.click();
-  log.innerHTML+='\n\n<span class="ok">Terminé ! Le fichier index.html corrigé est téléchargé.</span>';
+  log.innerHTML+='\n\n<span class="ok">تم! تم تحميل ملف index.html المحدَّث.</span>';
 };
 </script>
 </body>
