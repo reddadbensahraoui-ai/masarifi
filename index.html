@@ -62,7 +62,6 @@ input,button,select{font-family:'Segoe UI','Tahoma','Geneva','Verdana','Arial',s
 .fc-planned-item:last-child{border-bottom:none}
 </style>
 <base target="_blank">
-<base target="_blank">
 </head>
 <body>
 <div id="app">
@@ -110,8 +109,7 @@ function mkCmp(a,b){return a<b?-1:a>b?1:0;}
 function isPrevMonthLocked(){return new Date().getDate()>27;}
 function prevBudgetMonth(){return addMonths(tm(),-1);}
 function isMonthLocked(mk){var prev=prevBudgetMonth();if(mk===prev&&isPrevMonthLocked())return true;if(mkCmp(mk,prev)<0)return true;return false;}
-var chipYearOffset=0;
-function visibleMonths(){var now=tm();var year=String(parseInt(now.slice(0,4))+chipYearOffset);var m=[];for(var i=1;i<=12;i++)m.push(year+"-"+(i<10?"0":"")+i);return m;}
+function visibleMonths(){var now=tm();var year=now.slice(0,4);var m=[];for(var i=1;i<=12;i++)m.push(year+"-"+(i<10?"0":"")+i);return m;}
 function gen10Y(){var k=[],d=new Date(2024,0,1);for(var i=0;i<144;i++){k.push(d.getFullYear()+"-"+(d.getMonth()<9?"0":"")+(d.getMonth()+1));d.setMonth(d.getMonth()+1);}return k;}
 var ALL=gen10Y();
 function td(){return new Date().toISOString().slice(0,10);}
@@ -441,7 +439,7 @@ function buildFcModal(){
     h += '<div style="display:flex;flex-wrap:wrap;gap:6px;margin-bottom:12px">';
     for(var mi = curMoN; mi <= 12; mi++){
       var mStr = (mi < 10 ? "0" : "") + mi;
-      var mkOpt = (mi===12) ? (String(parseInt(nowYear)+1)+"-01") : (nowYear + "-" + mStr);
+      var mkOpt = nowYear + "-" + mStr;
       var sel = fcPlanMonth === mkOpt;
       h += '<div class="chip'+(sel?" selected":"")+'" onclick="setFcMonth(\''+mkOpt+'\')">'+mnAr[mi-1]+'</div>';
     }
@@ -864,7 +862,7 @@ function pageBudget(){
   h+='<div style="padding:0 20px 14px">';
   var now2=new Date();
   var fullDate=now2.toLocaleDateString("ar-MA",{weekday:"long",day:"numeric",month:"long",year:"numeric"});
-  h+='<div style="font-size:12px;color:#888;margin-bottom:8px;cursor:pointer;display:flex;align-items:center;gap:6px" onclick="goCurrentMonth()">📅 '+fullDate+(curM!==now?'<span style="color:#B8B5FF;font-size:10px;background:#B8B5FF15;border-radius:99px;padding:1px 8px">← الشهر الحالي</span>':'')+'</div>';
+  h+='<div style="font-size:12px;color:#888;margin-bottom:8px;cursor:pointer;display:flex;align-items:center;gap:6px" onclick="setCurM(tm())">📅 '+fullDate+(curM!==now?'<span style="color:#B8B5FF;font-size:10px;background:#B8B5FF15;border-radius:99px;padding:1px 8px">← الشهر الحالي</span>':'')+'</div>';
 
   if(locked){
     h+='<div class="lock-banner">';
@@ -1479,20 +1477,7 @@ function buildModal(){
 }
 
 // ── BUDGET ACTIONS ────────────────────────────────────────
-var _decTap={timer:null};
-function setCurM(mk){var vis=visibleMonths();if(vis.indexOf(mk)===-1)return;
-if(mk.slice(5,7)==="12"){
-  if(_decTap.timer){
-    clearTimeout(_decTap.timer);_decTap.timer=null;
-    chipYearOffset++;var ny=String(parseInt(mk.slice(0,4))+1);curM=ny+"-01";
-  } else {
-    curM=mk;
-    toast("اضغط مرة أخرى للانتقال للسنة المقبلة 📅","w");
-    _decTap.timer=setTimeout(function(){_decTap.timer=null;},450);
-  }
-} else { curM=mk; }
-_needScrollChip=true;expandedLog={};render();}
-function goCurrentMonth(){chipYearOffset=0;curM=tm();_needScrollChip=true;expandedLog={};render();}
+function setCurM(mk){var vis=visibleMonths();if(vis.indexOf(mk)===-1)return;curM=mk;_needScrollChip=true;expandedLog={};render();}
 function setTab(t){curTab=t;render();}
 function setCur(c){APP.currency=c;save();render();}
 function selCur(el){setCur(el.dataset.c);}
@@ -1700,7 +1685,7 @@ function reLockNow(){reLock();toast("تم إعادة القفل 🔒");render();
 var _notifTimer=null;
 function getUnpaidList(){var md=gm(tm());return md.charges.filter(function(c){return!c.paid;});}
 function fireUnpaidNotif(){var unpaid=getUnpaidList();if(!unpaid.length)return;var cur=APP.currency;var total=unpaid.reduce(function(s,c){return s+c.amount;},0);var body=unpaid.slice(0,5).map(function(c){return c.icon+" "+c.label+" — "+c.amount.toLocaleString()+" "+cur;}).join("\n");if(unpaid.length>5)body+="\n…و"+(unpaid.length-5)+" آخرين";body+="\n\nالمجموع: "+total.toLocaleString()+" "+cur;try{new Notification("🔔 مصاريفي — "+unpaid.length+" مصروف غير مدفوع",{body:body,icon:"data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 64 64'><rect width='64' height='64' rx='16' fill='%230F1117'/><text y='44' x='8' font-size='40'>💸</text></svg>",tag:"masarifi-unpaid",renotify:true});}catch(e){}}
-function startNotifTimer(){stopNotifTimer();if(localStorage.getItem("masarifi_notif")!=="1")return;if(Notification.permission!=="granted")return;var minutes=parseInt(localStorage.getItem("masarifi_notif_interval")||"60");var ms=minutes*60*1000;fireUnpaidNotif();_notifTimer=setInterval(function(){if(localStorage.getItem("masarifi_notif")==="1")fireUnpaidNotif();else stopNotifTimer();},ms);}
+function startNotifTimer(){stopNotifTimer();if(localStorage.getItem("masarifi_notif")!=="1")return;if(Notification.permission!=="granted")return;var minutes=parseInt(localStorage.getItem("masarifi_notif_interval")||"60");var ms=minutes*60*1000;fireUnpaidNotif();_notifTimer=setInterval(function(){if(localStorage.getItem("masarifi_notif")==="1")fireUnpfaidNotif();else stopNotifTimer();},ms);}
 function stopNotifTimer(){if(_notifTimer){clearInterval(_notifTimer);_notifTimer=null;}}
 function setNotifInterval(minutes){localStorage.setItem("masarifi_notif_interval",String(minutes));if(localStorage.getItem("masarifi_notif")==="1"&&Notification.permission==="granted"){startNotifTimer();toast("فترة التذكير: كل "+minutes+" دقيقة");}render();}
 function enableNotifs(){Notification.requestPermission().then(function(perm){if(perm==="granted"){localStorage.setItem("masarifi_notif","1");startNotifTimer();toast("تم تفعيل التذكيرات 🔔");}else toast("تم رفض الإشعارات","e");render()});}
