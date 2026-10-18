@@ -161,7 +161,7 @@ function newMonth(mk){
   }
   return {incomes:DI.map(function(i){return{id:i.id,label:i.label,amount:i.amount,icon:i.icon,color:i.color};}),charges:charges,savings:0};
 }
-function gm(k){if(!APP.months[k])APP.months[k]=newMonth(k);var m=APP.months[k];m.incomes=m.incomes.filter(function(i){return i.id!=="deficit_deduct";});var d=getDeficit(k);if(d>0)m.incomes.push({id:"deficit_deduct",label:"عجز الشهر السابق (مُرحّل)",amount:-d,icon:"⚠️",color:"#FF6B6B"});return m;}
+function gm(k){if(!APP.months[k])APP.months[k]=(APP.wipedFrom&&mkCmp(k,APP.wipedFrom)>=0)?{incomes:[],charges:[],savings:0}:newMonth(k);var m=APP.months[k];m.incomes=m.incomes.filter(function(i){return i.id!=="deficit_deduct";});var d=getDeficit(k);if(d>0)m.incomes.push({id:"deficit_deduct",label:"عجز الشهر السابق (مُرحّل)",amount:-d,icon:"⚠️",color:"#FF6B6B"});return m;}
 
 // ── PASSWORD ──────────────────────────────────────────────
 var PWD_KEY="masarifi_pwd",UNLOCK_KEY="masarifi_unlocked";
@@ -252,8 +252,9 @@ function forecastMonth(mk){
   var mkYear = mk.split("-")[0];
   var charges = [];
 
+  var blankM = !!(APP.wipedFrom && !APP.months[mk] && mkCmp(mk,APP.wipedFrom)>=0);
   // DC defaults
-  DC.forEach(function(c){
+  (blankM?[]:DC).forEach(function(c){
     if(c.skipMonths && c.skipMonths.indexOf(mo) !== -1) return;
     if(c.onlyMonths && c.onlyMonths.indexOf(mo) === -1) return;
     charges.push({id:c.id, label:c.label, amount:c.amount, icon:c.icon, color:c.color, source:"default"});
@@ -289,7 +290,7 @@ function forecastMonth(mk){
   }
 
   // Default income (DI)
-  var totalInc = DI.reduce(function(s,i){return s+i.amount;},0);
+  var totalInc = blankM ? 0 : DI.reduce(function(s,i){return s+i.amount;},0);
   var totalChg = charges.reduce(function(s,c){return s+c.amount;},0);
   return {mk:mk, incomes:totalInc, charges:totalChg, isActual:false, chargesList:charges};
 }
@@ -1069,6 +1070,9 @@ function pageBudget(){
     h+='</div>';var selLabel=intervalOptions.find(function(o){return o.val===nInterval;})||intervalOptions[2];
     if(nOn)h+='<div style="font-size:10px;color:#06D6A0">✓ مفعّل — تذكير '+selLabel.label+' طالما التطبيق مفتوح</div>';else h+='<div style="font-size:10px;color:#555">موقوف — فعّل المفتاح لبدء التذكيرات</div>';}
     h+='</div>';
+    h+='<div class="card" style="border:1px solid #FF6B6B33"><div style="font-size:11px;color:#FF8B94;margin-bottom:8px;font-weight:700">🧹 مسح الشهر الحالي والأشهر القادمة</div>';
+    h+='<div style="font-size:11px;color:#666;line-height:1.8;margin-bottom:10px">يمسح بيانات <b style="color:#fff">'+mlabel(curM)+'</b> وكل الأشهر التي بعده (المصاريف، الدخل، الادخار، حالة الدفع) ويتركها فارغة تماماً (بدون المصاريف الثابتة الافتراضية).<br>🗑️ تُحذف أيضاً <b style="color:#FF8B94">المصاريف المتكررة</b> التي تمس هذه الأشهر نهائياً.<br>🔑 محمي بكلمة مرور</div>';
+    h+='<button onclick="askWipe()" style="width:100%;background:#FF6B6B15;border:1.5px solid #FF6B6B55;border-radius:12px;padding:12px;color:#FF6B6B;font-size:13px;font-weight:700;cursor:pointer;font-family:Cairo,sans-serif">🧹 مسح من '+mlabel(curM)+' فصاعداً</button></div>';
     h+='<div class="card"><div style="font-size:11px;color:#444;margin-bottom:10px">💾 النسخ الاحتياطي</div>';
     h+='<div style="font-size:11px;color:#555;margin-bottom:10px;line-height:1.7">بياناتك على هاتفك فقط ✅<br>لا ترسل لأي خادم 🔒<br>نسخة احتياطية تلقائية كل شهر</div>';
     h+='<button onclick="doExport()" style="width:100%;background:#0a1f2a;border:1.5px solid #74B9FF44;border-radius:12px;padding:12px;color:#74B9FF;font-size:13px;font-weight:700;cursor:pointer;font-family:Cairo,sans-serif;margin-bottom:8px">📤 تصدير نسخة احتياطية</button>';
@@ -1108,13 +1112,14 @@ function buildForecast(){
 
   // ── حساب الدخل المتوقع ──
   // نبدأ من الدخل الافتراضي
-  var fIncomes = DI.map(function(i){ return {id:i.id, label:i.label, amount:i.amount, icon:i.icon, color:i.color, source:"default"}; });
+  var blankF = !!(APP.wipedFrom && mkCmp(nextMk,APP.wipedFrom)>=0);
+  var fIncomes = (blankF?[]:DI).map(function(i){ return {id:i.id, label:i.label, amount:i.amount, icon:i.icon, color:i.color, source:"default"}; });
 
   // ── حساب المصاريف المتوقعة ──
   var fCharges = [];
 
   // 1. من DC الثابتة
-  DC.forEach(function(c){
+  (blankF?[]:DC).forEach(function(c){
     if(c.skipMonths && c.skipMonths.indexOf(nextMo) !== -1) return;
     if(c.onlyMonths && c.onlyMonths.indexOf(nextMo) === -1) return;
     fCharges.push({id:c.id, label:c.label, amount:c.amount, icon:c.icon, color:c.color, source:"fixed"});
@@ -1479,6 +1484,7 @@ function buildModal(){
     else if(pwdMode==="change-old"){pTitle="✏️ تغيير كلمة المرور";pSub="أدخل كلمة المرور الحالية أولاً";pBtn="تحقق";pBtnFn="doPwdChangeVerify()";}
     else if(pwdMode==="change-new"){pTitle="✏️ كلمة المرور الجديدة";pSub="أدخل كلمة المرور الجديدة";pBtn="حفظ";pBtnFn="doPwdChangeNew()";}
     else if(pwdMode==="remove"){pTitle="🗑️ إزالة كلمة المرور";pSub="أدخل كلمة المرور الحالية للتأكيد";pBtn="إزالة كلمة المرور";pBtnFn="doPwdRemove()";}
+    else if(pwdMode==="wipe"){pTitle="🧹 مسح الأشهر";pSub="⚠️ سيتم مسح "+mlabel(curM)+" وكل الأشهر القادمة + المصاريف المتكررة نهائياً. أدخل كلمة المرور للتأكيد";pBtn="مسح نهائي";pBtnFn="doPwdWipe()";}
     h+='<span style="font-size:16px;font-weight:800">'+pTitle+'</span><button onclick="closeModal()" style="background:#1E2030;border:none;border-radius:99px;width:30px;height:30px;color:#888;cursor:pointer;font-size:16px">✕</button></div>';
     h+='<div style="font-size:12px;color:#666;margin-bottom:14px">'+pSub+'</div>';
     var dots=pwdVal.split("").map(function(){return"●";}).join(" ");
@@ -1765,12 +1771,40 @@ function deleteRecurring(recId){
 // ── PASSWORD ACTIONS ──────────────────────────────────────
 function openPwdModal(mode){pwdVal="";pwdMode=mode;modal="pwd";render();}
 function pwdKey(k){if(k==="⌫"){pwdVal=pwdVal.slice(0,-1);render();return;}if(k==="✓"){pwdConfirm();return;}if(pwdVal.length>=12)return;pwdVal+=k;render();}
-function pwdConfirm(){if(pwdMode==="unlock")doPwdUnlock();else if(pwdMode==="set")doPwdSet();else if(pwdMode==="change-old")doPwdChangeVerify();else if(pwdMode==="change-new")doPwdChangeNew();else if(pwdMode==="remove")doPwdRemove();}
+function pwdConfirm(){if(pwdMode==="unlock")doPwdUnlock();else if(pwdMode==="set")doPwdSet();else if(pwdMode==="change-old")doPwdChangeVerify();else if(pwdMode==="change-new")doPwdChangeNew();else if(pwdMode==="remove")doPwdRemove();else if(pwdMode==="wipe")doPwdWipe();}
 function doPwdUnlock(){if(!pwdVal){toast("أدخل كلمة المرور","e");return;}if(pwdVal!==getPwd()){toast("كلمة المرور خاطئة ✗","e");pwdVal="";render();return;}setUnlocked();modal=null;pwdVal="";toast("تم فتح القفل ✓ جلسة مؤقتة");render();}
 function doPwdSet(){if(!pwdVal||pwdVal.length<1){toast("أدخل كلمة مرور","e");return;}setPwdStore(pwdVal);modal=null;pwdVal="";toast("تم تعيين كلمة المرور ✓");render();}
 function doPwdChangeVerify(){if(pwdVal!==getPwd()){toast("كلمة المرور الحالية خاطئة ✗","e");pwdVal="";render();return;}pwdOldOk=true;pwdVal="";pwdMode="change-new";render();}
 function doPwdChangeNew(){if(!pwdVal){toast("أدخل كلمة مرور جديدة","e");return;}setPwdStore(pwdVal);modal=null;pwdVal="";pwdOldOk=false;toast("تم تغيير كلمة المرور ✓");render();}
 function doPwdRemove(){if(pwdVal!==getPwd()){toast("كلمة المرور خاطئة ✗","e");pwdVal="";render();return;}removePwd();reLock();modal=null;pwdVal="";toast("تمت إزالة كلمة المرور","w");render();}
+function askWipe(){
+  if(!getPwd()){toast("عيّن كلمة مرور أولاً","w");openPwdModal("set");return;}
+  openPwdModal("wipe");
+}
+function recAffectsFrom(rec,mk){
+  if(rec.type==="yearly")return true;
+  var y=parseInt(mk.slice(0,4)),mo=mk.slice(5,7),sy=parseInt(rec.startMonth.slice(0,4));
+  if(sy>y)return true;
+  if(sy<y)return false;
+  if(rec.type==="monthly")return true;
+  return (rec.months||[]).some(function(m){return m>=mo;});
+}
+function doPwdWipe(){
+  if(!pwdVal){toast("أدخل كلمة المرور","e");return;}
+  if(pwdVal!==getPwd()){toast("كلمة المرور خاطئة ✗","e");pwdVal="";render();return;}
+  var keys=Object.keys(APP.months).filter(function(mk){return mkCmp(mk,curM)>=0;});
+  var recs=(APP.recurring||[]).filter(function(r){return recAffectsFrom(r,curM);});
+  if(keys.length===0&&recs.length===0){modal=null;pwdVal="";toast("لا توجد بيانات للمسح","w");render();return;}
+  if(!APP.deletedLog)APP.deletedLog=[];
+  var snap={};
+  keys.forEach(function(mk){snap[mk]=APP.months[mk];delete APP.months[mk];});
+  APP.wipedFrom=(APP.wipedFrom&&mkCmp(APP.wipedFrom,curM)<0)?APP.wipedFrom:curM;
+  var recIds=recs.map(function(r){return r.id;});
+  APP.recurring=(APP.recurring||[]).filter(function(r){return recIds.indexOf(r.id)===-1;});
+  APP.deletedLog.push({month:curM,type:"wipe",item:{label:"مسح "+keys.length+" شهر + "+recs.length+" مصروف متكرر",snapshot:snap,recurring:recs},at:nowStamp()});
+  expandedLog={};save();modal=null;pwdVal="";
+  toast("تم مسح "+keys.length+" شهر و "+recs.length+" مصروف متكرر ✓","e");render();
+}
 function reLockNow(){reLock();toast("تم إعادة القفل 🔒");render();}
 
 // ── NOTIFICATIONS ─────────────────────────────────────────
