@@ -62,6 +62,7 @@ input,button,select{font-family:'Segoe UI','Tahoma','Geneva','Verdana','Arial',s
 .fc-planned-item:last-child{border-bottom:none}
 </style>
 <base target="_blank">
+<base target="_blank">
 </head>
 <body>
 <div id="app">
@@ -131,6 +132,7 @@ function newMonth(mk){
   });
   if(APP.recurring){
     APP.recurring.forEach(function(rec){
+      if(rec.skip && rec.skip.indexOf(mk)!==-1) return;
       if(mkCmp(mk, rec.startMonth) < 0) return;
       var add = false;
       if(rec.type === "monthly") {
@@ -260,6 +262,7 @@ function forecastMonth(mk){
   // User recurring rules
   if(APP.recurring){
     APP.recurring.forEach(function(rec){
+      if(rec.skip && rec.skip.indexOf(mk)!==-1) return;
       if(mkCmp(mk, rec.startMonth) < 0) return;
       var recStartYear = rec.startMonth.split("-")[0];
       var add = false;
@@ -1120,6 +1123,7 @@ function buildForecast(){
   // 2. من المصاريف المتكررة
   if(APP.recurring){
     APP.recurring.forEach(function(rec){
+      if(rec.skip && rec.skip.indexOf(nextMk)!==-1) return;
       if(mkCmp(nextMk, rec.startMonth) < 0) return;
       var recYear = rec.startMonth.split("-")[0];
       var add = false;
@@ -1461,6 +1465,13 @@ function buildModal(){
     h+='<div style="font-size:14px;color:#ccc;text-align:center;margin:20px 0">هل تريد حذف هذا العنصر؟</div>';
     h+='<div style="display:flex;gap:10px"><button onclick="doDelItem()" style="flex:1;background:#FF6B6B;border:none;border-radius:13px;padding:14px;color:#fff;font-size:15px;font-weight:800;cursor:pointer;font-family:Cairo,sans-serif">نعم، احذف</button><button onclick="closeModal()" style="flex:1;background:#1E2030;border:none;border-radius:13px;padding:14px;color:#888;font-size:15px;cursor:pointer;font-family:Cairo,sans-serif">إلغاء</button></div>';
   }
+  else if(modal==="confirmDelRec"){
+    h+='<span style="font-size:16px;font-weight:800">🔄 مصروف متكرر</span><button onclick="closeModal()" style="background:#1E2030;border:none;border-radius:99px;width:30px;height:30px;color:#888;cursor:pointer;font-size:16px">✕</button></div>';
+    h+='<div style="font-size:14px;color:#ccc;text-align:center;margin:16px 0;line-height:1.9">هذا المصروف جزء من سلسلة متكررة<br>ماذا تريد أن تفعل؟</div>';
+    h+='<button onclick="doDelRecOne()" style="width:100%;background:#FFD16622;border:1.5px solid #FFD16666;border-radius:13px;padding:14px;color:#FFD166;font-size:14px;font-weight:800;cursor:pointer;font-family:Cairo,sans-serif;margin-bottom:8px">حذف هذا الشهر فقط</button>';
+    h+='<button onclick="doDelRecSeries()" style="width:100%;background:#FF6B6B;border:none;border-radius:13px;padding:14px;color:#fff;font-size:14px;font-weight:800;cursor:pointer;font-family:Cairo,sans-serif;margin-bottom:8px">حذف السلسلة كاملة (هذا الشهر + القادمة)</button>';
+    h+='<button onclick="closeModal()" style="width:100%;background:#1E2030;border:none;border-radius:13px;padding:13px;color:#888;font-size:14px;cursor:pointer;font-family:Cairo,sans-serif">إلغاء</button>';
+  }
   else if(modal==="pwd"){
     var pTitle="",pSub="",pBtn="",pBtnFn="";
     if(pwdMode==="unlock"){pTitle="🔓 فتح الشهر المقفل";pSub="أدخل كلمة المرور للمتابعة";pBtn="فتح القفل";pBtnFn="doPwdUnlock()";}
@@ -1587,10 +1598,12 @@ function saveItem(){
     else if(recurType==="monthly")  addToCurrentMonth=true;
     else if(recurType==="yearly")   addToCurrentMonth=(recurYearlyMonth===curMo);
     else if(recurType==="months")   addToCurrentMonth=(recurMonths.indexOf(curMo)!==-1);
+    var recId = recurType!=="none" ? "rec_"+Date.now()+"_"+Math.random().toString(36).slice(2) : null;
+    if(recId) ni.recurringId = recId;
     if(addToCurrentMonth) md.charges.push(ni);
     if(recurType!=="none"){
       var rec = {
-        id: "rec_"+Date.now()+"_"+Math.random().toString(36).slice(2),
+        id: recId,
         label: numLabel.trim(), amount: v, icon: numIcon, color: numCol,
         startMonth: curM, type: recurType,
         months: recurType==="months"?recurMonths.slice():[],
@@ -1674,7 +1687,55 @@ function saveEdit(){
   if(editType==="charge")md.charges=arr;else md.incomes=arr;APP.months[curM]=md;save();modal=null;
   toast(wasCalc?"تم تسجيل العملية في السجل (بدون تغيير المبلغ) ✓":"تم الحفظ ✓");render();
 }
-function askDel(id,type){if(guardLocked())return;pendingDelId=id;pendingDelType=type;modal="confirmDel";render();}
+function findRecOfCharge(id){
+  var md=gm(curM);
+  var c=md.charges.find(function(x){return x.id===id;});
+  if(!c||!APP.recurring)return null;
+  if(c.recurringId){
+    var r=APP.recurring.find(function(r){return r.id===c.recurringId;});
+    if(r)return r;
+  }
+  return APP.recurring.find(function(r){return r.label===c.label&&r.amount===c.amount;})||null;
+}
+function askDel(id,type){
+  if(guardLocked())return;
+  pendingDelId=id;pendingDelType=type;
+  modal=(type==="charge"&&findRecOfCharge(id))?"confirmDelRec":"confirmDel";
+  render();
+}
+function doDelRecOne(){
+  var rec=findRecOfCharge(pendingDelId);
+  if(rec){
+    if(!rec.skip)rec.skip=[];
+    if(rec.skip.indexOf(curM)===-1)rec.skip.push(curM);
+  }
+  doDelItem();
+}
+function doDelRecSeries(){
+  if(guardLocked())return;
+  var rec=findRecOfCharge(pendingDelId);
+  var md=gm(curM);
+  var item=md.charges.find(function(x){return x.id===pendingDelId;});
+  if(item){
+    if(!APP.deletedLog)APP.deletedLog=[];
+    var arch=Object.assign({},item);
+    addLog(arch,"حذف","تم حذف السلسلة: "+arch.label);
+    APP.deletedLog.push({month:curM,type:"charge",item:arch,at:nowStamp()});
+  }
+  if(rec){
+    APP.recurring=APP.recurring.filter(function(r){return r.id!==rec.id;});
+    Object.keys(APP.months).forEach(function(mk){
+      if(mkCmp(mk,curM)<0)return;
+      APP.months[mk].charges=APP.months[mk].charges.filter(function(c){
+        return c.recurringId!==rec.id&&c.id!==pendingDelId;
+      });
+    });
+  } else {
+    md.charges=md.charges.filter(function(x){return x.id!==pendingDelId;});
+    APP.months[curM]=md;
+  }
+  save();modal=null;toast("تم حذف السلسلة كاملة","e");render();
+}
 function doDelItem(){
   if(guardLocked())return;var md=gm(curM);
   var arr=pendingDelType==="charge"?md.charges:md.incomes;
