@@ -858,9 +858,11 @@ function pageBudget(){
     var isNow=mk===now,isCur=mk===curM,isLk=isMonthLocked(mk);
     var s=isNow?"border-color:#06D6A0;color:#06D6A0;background:#06D6A015":isCur?"border-color:#B8B5FF;color:#B8B5FF;background:#B8B5FF15":"";
     var lockIcon=isLk?' <span style="font-size:9px;opacity:.6">🔒</span>':'';
-    h+='<div class="chip"'+(isCur?' id="chip-cur"':'')+' style="'+s+'" onclick="fff(\''+mk+'\')">'+mshort(mk)+lockIcon+'</div>';
+    h+='<div class="chip"'+(isCur?' id="chip-cur"':'')+' style="'+s+'" onclick="chipClick(\''+mk+'\')" ondblclick="chipDbl(\''+mk+'\')">'+mshort(mk)+lockIcon+'</div>';
   });
+  if(viewYear<2035)h+='<div class="chip" style="color:#B8B5FF;border-color:#B8B5FF55;flex-shrink:0" onclick="nextYearNav()">'+(viewYear+1)+' ›</div>';
   h+='</div>';
+  h+='<div style="padding:0 20px 8px;font-size:9px;color:#444">👆 اضغط على شهر لعرض توقّعه &nbsp;•&nbsp; اضغط مرتين للسنة الموالية</div>';
   h+='<div style="padding:0 20px 14px">';
   var now2=new Date();
   var fullDate=now2.toLocaleDateString("ar-MA",{weekday:"long",day:"numeric",month:"long",year:"numeric"});
@@ -1095,7 +1097,7 @@ function pageBudget(){
 
 // ── FORECAST ──────────────────────────────────────────────
 function buildForecast(){
-  var nextMk = addMonths(curM, 1);
+  var nextMk = curM; // توقّع الشهر المختار من الشريط (يتحدّث عند الضغط على شهر)
   var nextMo = nextMk.split("-")[1];
   var nextYear = nextMk.split("-")[0];
   var cur = APP.currency;
@@ -1135,9 +1137,10 @@ function buildForecast(){
   }
 
   // ── العجز المُرحَّل ──
-  var curDeficit = getDeficit(nextMk); // عجز الشهر الحالي (curM) سيُرحَّل لـ nextMk
-  // نحسبه يدوياً من curM
-  var cmdLocal = APP.months[curM];
+  var curDeficit = getDeficit(nextMk); // عجز الشهر السابق على الشهر المتوقَّع
+  // نحسبه يدوياً من الشهر الذي قبل الشهر المختار
+  var prevMkFc = addMonths(nextMk, -1);
+  var cmdLocal = APP.months[prevMkFc];
   var carryover = 0;
   if(cmdLocal){
     var ti0 = cmdLocal.incomes.filter(function(i){return i.id!=="deficit_deduct";}).reduce(function(s,i){return s+i.amount;},0);
@@ -1163,7 +1166,7 @@ function buildForecast(){
   // العنوان
   h += '<div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:14px">';
   h += '<div>';
-  h += '<div style="font-size:13px;font-weight:900;color:#FFD166;margin-bottom:2px">🔭 توقع الشهر القادم</div>';
+  h += '<div style="font-size:13px;font-weight:900;color:#FFD166;margin-bottom:2px">🔭 '+(nextMk===tm()?"توقّع الشهر الحالي":"توقّع: "+mlabel(nextMk))+'</div>';
   h += '<div style="font-size:10px;color:#666">' + (mnMap[nextMo]||nextMo) + ' ' + nextYear + '</div>';
   h += '</div>';
   h += '<div style="background:#FFD16618;border:1px solid #FFD16633;border-radius:10px;padding:5px 10px;text-align:center">';
@@ -1180,7 +1183,7 @@ function buildForecast(){
   h += '</div>';
   h += '<div class="bar-t"><div class="bar-f" style="width:'+ratio.toFixed(1)+'%;background:'+surplusColor+'"></div></div>';
   if(carryover > 0){
-    h += '<div style="font-size:10px;color:#FF8B94;margin-top:4px">⚠️ يُرحَّل عجز ' + carryover.toLocaleString() + ' ' + cur + ' من الشهر الحالي</div>';
+    h += '<div style="font-size:10px;color:#FF8B94;margin-top:4px">⚠️ يُرحَّل عجز ' + carryover.toLocaleString() + ' ' + cur + ' من ' + mlabel(prevMkFc) + '</div>';
   }
   h += '</div>';
 
@@ -1480,6 +1483,12 @@ function buildModal(){
 
 // ── BUDGET ACTIONS ────────────────────────────────────────
 function setCurM(mk){var vis=visibleMonths();if(vis.indexOf(mk)===-1)return;curM=mk;_needScrollChip=true;expandedLog={};render();}
+// ضغطة واحدة على شهر = اختياره وعرض توقّعه / ضغطتان = الانتقال لنفس الشهر في السنة الموالية
+var _chipTap={timer:null,mk:null};
+function chipClick(mk){clearTimeout(_chipTap.timer);_chipTap.mk=mk;_chipTap.timer=setTimeout(function(){_chipTap.timer=null;setCurM(mk);},280);}
+function chipDbl(mk){clearTimeout(_chipTap.timer);_chipTap.timer=null;toast("↪ "+(viewYear+1)+" — نفس الشهر");jumpYear(1);}
+function jumpYear(dir){var mo=curM.slice(5,7);viewYear+=dir;curM=viewYear+"-"+mo;_needScrollChip=true;expandedLog={};render();}
+function nextYearNav(){jumpYear(1);}
 function setTab(t){curTab=t;render();}
 function setCur(c){APP.currency=c;save();render();}
 function selCur(el){setCur(el.dataset.c);}
@@ -1489,11 +1498,6 @@ function openModal(m){
   if(m==="addCharge"){recurType="none";recurMonths=[];recurYearlyMonth="";}
   render();
 }
-var _chipTap={timer:null,mk:null};
-function chipClick(mk){ /* waits 280ms so a double-click doesn't trigger it twice */ }
-function chipDbl(mk){ /* cancels the single click and jumps to next year, keeping the same month */ }
-function jumpYear(dir){ /* moves viewYear ±1 and keeps the same month selected */ }
-function nextYearNav(){jumpYear(1);}
 function prevYear(){
   if(viewYear<=2024)return;
   viewYear--;
