@@ -858,7 +858,7 @@ function pageBudget(){
     var isNow=mk===now,isCur=mk===curM,isLk=isMonthLocked(mk);
     var s=isNow?"border-color:#06D6A0;color:#06D6A0;background:#06D6A015":isCur?"border-color:#B8B5FF;color:#B8B5FF;background:#B8B5FF15":"";
     var lockIcon=isLk?' <span style="font-size:9px;opacity:.6">🔒</span>':'';
-    h+='<div class="chip"'+(isCur?' id="chip-cur"':'')+' style="'+s+'" onclick="setCurM(\''+mk+'\')">'+mshort(mk)+lockIcon+'</div>';
+    h+='<div class="chip"'+(isCur?' id="chip-cur"':'')+' style="'+s+'" onclick="fff(\''+mk+'\')">'+mshort(mk)+lockIcon+'</div>';
   });
   h+='</div>';
   h+='<div style="padding:0 20px 14px">';
@@ -1489,6 +1489,11 @@ function openModal(m){
   if(m==="addCharge"){recurType="none";recurMonths=[];recurYearlyMonth="";}
   render();
 }
+var _chipTap={timer:null,mk:null};
+function chipClick(mk){ /* waits 280ms so a double-click doesn't trigger it twice */ }
+function chipDbl(mk){ /* cancels the single click and jumps to next year, keeping the same month */ }
+function jumpYear(dir){ /* moves viewYear ±1 and keeps the same month selected */ }
+function nextYearNav(){jumpYear(1);}
 function prevYear(){
   if(viewYear<=2024)return;
   viewYear--;
