@@ -60,6 +60,10 @@ input,button,select{font-family:'Segoe UI','Tahoma','Geneva','Verdana','Arial',s
 .fc-month-card.fc-deficit{border-right-color:#FF6B6B66}
 .fc-planned-item{display:flex;align-items:center;justify-content:space-between;padding:7px 0;border-bottom:1px solid #2A2D3E22}
 .fc-planned-item:last-child{border-bottom:none}
+#pin-screen{position:fixed;inset:0;z-index:10000;background:#0F1117;display:none;flex-direction:column;align-items:center;justify-content:center;padding:20px;direction:rtl}
+.pin-wrap{width:100%;max-width:320px;text-align:center}
+.pin-dot{width:16px;height:16px;border-radius:99px;border:2px solid #444;display:inline-block;margin:0 8px;transition:all .15s}
+.pin-dot.on{background:#B8B5FF;border-color:#B8B5FF}
 </style>
 <base target="_blank">
 <base target="_blank">
@@ -74,6 +78,7 @@ input,button,select{font-family:'Segoe UI','Tahoma','Geneva','Verdana','Arial',s
   </div>
 </div>
 <div id="toast"></div>
+<div id="pin-screen"></div>
 <script>
 // ── DATA ──────────────────────────────────────────────────
 var SK="masarifi_v1";
@@ -1070,6 +1075,9 @@ function pageBudget(){
     h+='</div>';var selLabel=intervalOptions.find(function(o){return o.val===nInterval;})||intervalOptions[2];
     if(nOn)h+='<div style="font-size:10px;color:#06D6A0">✓ مفعّل — تذكير '+selLabel.label+' طالما التطبيق مفتوح</div>';else h+='<div style="font-size:10px;color:#555">موقوف — فعّل المفتاح لبدء التذكيرات</div>';}
     h+='</div>';
+    h+='<div class="card" style="border:1px solid #B8B5FF33"><div style="font-size:11px;color:#B8B5FF;margin-bottom:8px;font-weight:700">🔢 قفل التطبيق (PIN)</div>';
+    h+='<div style="font-size:11px;color:#666;line-height:1.8;margin-bottom:10px">يُطلب رمز من 4 أرقام عند فتح التطبيق، ويُقفل تلقائياً بعد <b style="color:#fff">5 دقائق</b> في الخلفية.</div>';
+    h+='<div style="display:flex;gap:8px"><button onclick="pinChangeStart()" style="flex:1;background:#1E2030;border:1.5px solid #B8B5FF33;border-radius:11px;padding:10px;color:#B8B5FF;font-size:12px;cursor:pointer;font-family:Cairo,sans-serif">✏️ تغيير الرمز</button><button onclick="pinLockNow()" style="flex:1;background:#FF6B6B15;border:1.5px solid #FF6B6B44;border-radius:11px;padding:10px;color:#FF8B94;font-size:12px;cursor:pointer;font-family:Cairo,sans-serif">🔒 قفل الآن</button></div></div>';
     h+='<div class="card" style="border:1px solid #FF6B6B33"><div style="font-size:11px;color:#FF8B94;margin-bottom:8px;font-weight:700">🧹 مسح الشهر الحالي والأشهر القادمة</div>';
     h+='<div style="font-size:11px;color:#666;line-height:1.8;margin-bottom:10px">يمسح بيانات <b style="color:#fff">'+mlabel(curM)+'</b> وكل الأشهر التي بعده (المصاريف، الدخل، الادخار، حالة الدفع) ويتركها فارغة تماماً (بدون المصاريف الثابتة الافتراضية).<br>🗑️ تُحذف أيضاً <b style="color:#FF8B94">المصاريف المتكررة</b> التي تمس هذه الأشهر نهائياً.<br>🔑 محمي بكلمة مرور</div>';
     h+='<button onclick="askWipe()" style="width:100%;background:#FF6B6B15;border:1.5px solid #FF6B6B55;border-radius:12px;padding:12px;color:#FF6B6B;font-size:13px;font-weight:700;cursor:pointer;font-family:Cairo,sans-serif">🧹 مسح من '+mlabel(curM)+' فصاعداً</button></div>';
@@ -1817,8 +1825,88 @@ function setNotifInterval(minutes){localStorage.setItem("masarifi_notif_interval
 function enableNotifs(){Notification.requestPermission().then(function(perm){if(perm==="granted"){localStorage.setItem("masarifi_notif","1");startNotifTimer();toast("تم تفعيل التذكيرات 🔔");}else toast("تم رفض الإشعارات","e");render()});}
 function toggleNotifs(){var cur=localStorage.getItem("masarifi_notif")==="1";if(cur){localStorage.setItem("masarifi_notif","0");stopNotifTimer();toast("تم إيقاف التذكيرات","w");}else{localStorage.setItem("masarifi_notif","1");startNotifTimer();toast("تم تفعيل التذكيرات 🔔");}render();}
 
+// ── APP PIN LOCK ──────────────────────────────────────────
+var PIN_KEY="masarifi_pin",PIN_SALT="masarifi_pin_salt",PIN_HID="masarifi_hidden_at",PIN_LOCK_MS=5*60*1000;
+var pinMode="unlock",pinBuf="",pinFirst="",pinCancelable=false,pinFails=0,pinBlockUntil=0,pinErr="",pinBusy=false;
+function pinHash(p,salt){var s=salt+":"+p+":"+salt,h1=5381,h2=52711;for(var r=0;r<2000;r++){for(var i=0;i<s.length;i++){var c=s.charCodeAt(i);h1=((h1<<5)+h1)^c;h2=((h2<<5)+h2)^(c+r);h1|=0;h2|=0;}}return (h1>>>0).toString(16)+"-"+(h2>>>0).toString(16);}
+function hasPin(){try{return !!localStorage.getItem(PIN_KEY);}catch(e){return false;}}
+function pinSet(p){var salt=Math.random().toString(36).slice(2)+Date.now().toString(36);localStorage.setItem(PIN_SALT,salt);localStorage.setItem(PIN_KEY,pinHash(p,salt));}
+function pinCheck(p){return pinHash(p,localStorage.getItem(PIN_SALT)||"")===localStorage.getItem(PIN_KEY);}
+function pinVisible(){var el=document.getElementById("pin-screen");return !!el&&el.style.display!=="none";}
+function pinShow(mode,cancelable){
+  pinMode=mode;pinBuf="";pinFirst="";pinErr="";pinBusy=false;pinCancelable=!!cancelable;
+  document.getElementById("pin-screen").style.display="flex";
+  document.getElementById("app").style.visibility="hidden";
+  pinRender();
+}
+function pinHide(){
+  document.getElementById("pin-screen").style.display="none";
+  document.getElementById("app").style.visibility="visible";
+  try{localStorage.removeItem(PIN_HID);}catch(e){}
+}
+function pinRender(){
+  var T={setup:["🔐 أنشئ رمز PIN","اختر 4 أرقام لحماية التطبيق"],confirm:["🔐 أعد إدخال الرمز","للتأكيد"],unlock:["🔒 مصاريفي","أدخل رمز PIN"],"change-old":["🔑 الرمز الحالي","أدخل رمز PIN الحالي"]}[pinMode];
+  var h='<div class="pin-wrap">';
+  h+='<div style="font-size:24px;font-weight:900;margin-bottom:6px">'+T[0]+'</div>';
+  h+='<div style="font-size:12px;color:#666;margin-bottom:26px">'+T[1]+'</div>';
+  h+='<div style="margin-bottom:12px">';
+  for(var i=0;i<4;i++)h+='<span class="pin-dot'+(i<pinBuf.length?" on":"")+'"></span>';
+  h+='</div>';
+  h+='<div id="pin-err" style="min-height:20px;font-size:12px;color:#FF8B94;margin-bottom:16px">'+pinErr+'</div>';
+  h+='<div class="numpad" style="direction:ltr">';
+  ["1","2","3","4","5","6","7","8","9"].forEach(function(k){h+='<button class="nk" onclick="pinKey(\''+k+'\')">'+k+'</button>';});
+  h+=pinCancelable?'<button class="nk" style="font-size:13px" onclick="pinCancel()">إلغاء</button>':'<div></div>';
+  h+='<button class="nk" onclick="pinKey(\'0\')">0</button>';
+  h+='<button class="nk del" onclick="pinKey(\'⌫\')">⌫</button>';
+  h+='</div></div>';
+  document.getElementById("pin-screen").innerHTML=h;
+}
+function pinKey(k){
+  if(pinBusy)return;
+  if((pinMode==="unlock"||pinMode==="change-old")&&Date.now()<pinBlockUntil){pinErr="انتظر "+Math.ceil((pinBlockUntil-Date.now())/1000)+" ثانية";pinRender();return;}
+  if(k==="⌫")pinBuf=pinBuf.slice(0,-1);
+  else if(/^[0-9]$/.test(k)&&pinBuf.length<4)pinBuf+=k;
+  pinErr="";pinRender();
+  if(pinBuf.length===4){pinBusy=true;setTimeout(pinProcess,150);}
+}
+function pinWrong(){
+  pinFails++;pinBuf="";pinErr="رمز خاطئ ✗";
+  if(pinFails>=5){pinBlockUntil=Date.now()+30000;pinFails=0;pinErr="محاولات كثيرة — انتظر 30 ثانية";}
+  pinRender();
+}
+function pinProcess(){
+  pinBusy=false;var b=pinBuf;
+  if(pinMode==="unlock"){if(pinCheck(b)){pinFails=0;pinHide();}else pinWrong();}
+  else if(pinMode==="change-old"){if(pinCheck(b)){pinFails=0;pinMode="setup";pinBuf="";pinErr="";pinRender();}else pinWrong();}
+  else if(pinMode==="setup"){pinFirst=b;pinBuf="";pinMode="confirm";pinErr="";pinRender();}
+  else if(pinMode==="confirm"){
+    if(b===pinFirst){var wasChange=pinCancelable;pinSet(b);pinHide();toast(wasChange?"تم تغيير الرمز ✓":"تم تعيين الرمز ✓");}
+    else{pinMode="setup";pinBuf="";pinFirst="";pinErr="الرمزان غير متطابقين — أعد المحاولة";pinRender();}
+  }
+}
+function pinCancel(){if(!pinCancelable)return;pinHide();}
+function pinInit(){pinShow(hasPin()?"unlock":"setup",false);}
+function pinLockNow(){if(!hasPin())return;pinShow("unlock",false);}
+function pinChangeStart(){pinShow("change-old",true);}
+function pinCheckResume(){
+  var t=0;try{t=parseInt(localStorage.getItem(PIN_HID)||"0");}catch(e){}
+  if(t&&Date.now()-t>=PIN_LOCK_MS&&hasPin()&&!pinVisible())pinShow("unlock",false);
+  try{localStorage.removeItem(PIN_HID);}catch(e){}
+}
+function pinMarkHidden(){if(!pinVisible()){try{localStorage.setItem(PIN_HID,String(Date.now()));}catch(e){}}}
+document.addEventListener("visibilitychange",function(){if(document.hidden)pinMarkHidden();else pinCheckResume();});
+window.addEventListener("pagehide",pinMarkHidden);
+window.addEventListener("pageshow",function(){pinCheckResume();});
+document.addEventListener("keydown",function(e){
+  if(!pinVisible())return;
+  if(/^[0-9]$/.test(e.key))pinKey(e.key);
+  else if(e.key==="Backspace")pinKey("⌫");
+  else if(e.key==="Escape")pinCancel();
+});
+
 // ── START ─────────────────────────────────────────────────
 (function(){var vis=visibleMonths();if(vis.indexOf(curM)===-1)curM=tm();if(!APP.planned)APP.planned=[];})();
+pinInit();
 render();
 setTimeout(function(){autoBackup();},3000);
 setTimeout(function(){startNotifTimer();},1000);
