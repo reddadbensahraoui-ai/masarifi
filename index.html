@@ -80,8 +80,12 @@ input,button,select{font-family:'Segoe UI','Tahoma','Geneva','Verdana','Arial',s
 <div id="toast"></div>
 <div id="pin-screen"></div>
 <script>
+(function(){try{localStorage.setItem("_t","1");localStorage.removeItem("_t");sessionStorage.setItem("_t","1");}catch(e){
+  function mk(){var d={};return{getItem:function(k){return k in d?d[k]:null;},setItem:function(k,v){d[k]=String(v);},removeItem:function(k){delete d[k];}};}
+  try{Object.defineProperty(window,"localStorage",{value:mk()});Object.defineProperty(window,"sessionStorage",{value:mk()});}catch(e2){}
+}})();
 // ── DATA ──────────────────────────────────────────────────
-var SK="masarifi_v1";
+var SK="masarifi_demo_sim";
 var APP=(function(){try{var r=localStorage.getItem(SK);if(r){var p=JSON.parse(r);if(!p.persons)p.persons=[];if(!p.recurring)p.recurring=[];if(!p.planned)p.planned=[];return p;}}catch(e){}return{currency:"MAD",months:{},persons:[],recurring:[],planned:[]};})();
 
 function save(){try{localStorage.setItem(SK,JSON.stringify(APP));}catch(e){toast("تعذر الحفظ!","e");}}
@@ -213,7 +217,7 @@ var _tt;
 function toast(msg,type){var el=document.getElementById("toast");el.textContent=msg;el.className="on "+(type||"s");clearTimeout(_tt);_tt=setTimeout(function(){el.className="";},2400);}
 
 // ── AUTO BACKUP ───────────────────────────────────────────
-function autoBackup(){try{var last=localStorage.getItem("masarifi_bk");var now=new Date();var key=now.getFullYear()+"-"+now.getMonth();if(last===key||Object.keys(APP.months).length===0)return;var blob=new Blob([JSON.stringify(APP,null,2)],{type:"application/json"});var url=URL.createObjectURL(blob);var a=document.createElement("a");a.href=url;a.download="masarifi_auto_"+now.getFullYear()+"-"+(now.getMonth()+1)+"-"+now.getDate()+".json";a.click();URL.revokeObjectURL(url);localStorage.setItem("masarifi_bk",key);toast("تم النسخ الاحتياطي التلقائي ✓");}catch(e){}}
+function autoBackup(){return;try{var last=localStorage.getItem("masarifi_bk");var now=new Date();var key=now.getFullYear()+"-"+now.getMonth();if(last===key||Object.keys(APP.months).length===0)return;var blob=new Blob([JSON.stringify(APP,null,2)],{type:"application/json"});var url=URL.createObjectURL(blob);var a=document.createElement("a");a.href=url;a.download="masarifi_auto_"+now.getFullYear()+"-"+(now.getMonth()+1)+"-"+now.getDate()+".json";a.click();URL.revokeObjectURL(url);localStorage.setItem("masarifi_bk",key);toast("تم النسخ الاحتياطي التلقائي ✓");}catch(e){}}
 
 // ── LOCK GUARD ────────────────────────────────────────────
 function guardLocked(){if(!isMonthLocked(curM))return false;if(isUnlocked())return false;pwdVal="";pwdMode="unlock";modal="pwd";render();return true;}
@@ -1423,8 +1427,8 @@ function buildModal(){
         }
         h+='</div>';
       }
-      if(recurType==="months"){
-        h+='<label class="lbl">اختر الأشهر القادمة</label>';
+      if(recurType==="months"||recurType==="monthly"){
+        h+='<label class="lbl">'+(recurType==="monthly"?"أشهر التطبيق (كلها محددة — اضغط على شهر لإلغائه)":"اختر الأشهر القادمة")+'</label>';
         h+='<div class="month-select">';
         var monthsAr=["يناير","فبراير","مارس","أبريل","ماي","يونيو","يوليوز","غشت","شتنبر","أكتوبر","نونبر","دجنبر"];
         var curMonthNum=parseInt(curM.split("-")[1]);
@@ -1440,7 +1444,7 @@ function buildModal(){
     } else {
       h+='<div style="text-align:center;margin-bottom:8px"><span style="font-size:22px">'+numIcon+'</span> <span style="color:#888;font-size:13px">'+numLabel+'</span></div>';
       var recurLabel = "";
-      if(recurType==="monthly") recurLabel = " (شهري — حتى نهاية السنة)";
+      if(recurType==="monthly") recurLabel = (recurMonths.length<monthlyAll().length) ? " (أشهر: "+recurMonths.slice().sort().join("،")+")" : " (شهري — حتى نهاية السنة)";
       else if(recurType==="yearly"){ var ynMap={"01":"يناير","02":"فبراير","03":"مارس","04":"أبريل","05":"ماي","06":"يونيو","07":"يوليوز","08":"غشت","09":"شتنبر","10":"أكتوبر","11":"نونبر","12":"دجنبر"}; recurLabel=" (سنوي — كل "+(ynMap[recurYearlyMonth]||recurYearlyMonth)+")"; }
       else if(recurType==="months") recurLabel = " (أشهر: "+recurMonths.join("،")+")";
       h+='<div style="font-size:11px;color:#B8B5FF;text-align:center;margin-bottom:4px">'+recurLabel+'</div>';
@@ -1581,7 +1585,8 @@ function nkPress(k){
 }
 function setIcon(ic){numIcon=ic;render();}
 function setCol(c){numCol=c;render();}
-function setRecurType(type){recurType=type;if(type!=="months")recurMonths=[];if(type!=="yearly")recurYearlyMonth="";render();}
+function monthlyAll(){var a=[],n=parseInt(curM.split("-")[1]);for(var i=n;i<=12;i++)a.push(i<10?"0"+i:""+i);return a;}
+function setRecurType(type){recurType=type;recurMonths=(type==="monthly")?monthlyAll():[];if(type!=="yearly")recurYearlyMonth="";render();}
 function toggleRecurMonth(mStr){
   var idx = recurMonths.indexOf(mStr);
   if(idx===-1) recurMonths.push(mStr);
@@ -1592,7 +1597,7 @@ function setYearlyMonth(m){recurYearlyMonth=m;render();}
 function nextStep(){
   if(!numLabel.trim()){toast("أدخل الاسم أولاً","e");return;}
   if(recurType==="yearly"&&!recurYearlyMonth){toast("اختر الشهر للتكرار السنوي","e");return;}
-  if(recurType==="months"&&recurMonths.length===0){toast("اختر شهراً واحداً على الأقل","e");return;}
+  if((recurType==="months"||recurType==="monthly")&&recurMonths.length===0){toast("اختر شهراً واحداً على الأقل","e");return;}
   numStep="amount";numVal="";render();
 }
 function prevStep(){numStep="info";render();}
@@ -1606,6 +1611,7 @@ function saveItem(){
   var initDetail=v.toLocaleString()+" "+APP.currency+(numComment.trim()?" — "+numComment.trim():"");
   addLog(ni,"إضافة",initDetail);
   if(modal==="addCharge"){
+    if(recurType==="monthly"&&recurMonths.length<monthlyAll().length)recurType="months";
     var curMo=curM.split("-")[1];
     var addToCurrentMonth=false;
     if(recurType==="none")          addToCurrentMonth=true;
@@ -1906,7 +1912,11 @@ document.addEventListener("keydown",function(e){
 
 // ── START ─────────────────────────────────────────────────
 (function(){var vis=visibleMonths();if(vis.indexOf(curM)===-1)curM=tm();if(!APP.planned)APP.planned=[];})();
-pinInit();
+(function(){
+  APP={currency:"MAD",months:{},persons:[],recurring:[],planned:[]};
+  ["2026-10","2026-11","2026-12"].forEach(function(mk){APP.months[mk]=newMonth(mk);});
+  curM="2026-10";viewYear=2026;curTab="charges";
+})();
 render();
 setTimeout(function(){autoBackup();},3000);
 setTimeout(function(){startNotifTimer();},1000);
