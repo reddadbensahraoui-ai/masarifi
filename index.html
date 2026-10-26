@@ -1,4 +1,4 @@
-aa<!DOCTYPE html>
+<!DOCTYPE html>
 <html lang="ar" dir="rtl">
 <head>
 <meta charset="UTF-8"/>
@@ -109,7 +109,7 @@ function mkCmp(a,b){return a<b?-1:a>b?1:0;}
 function isPrevMonthLocked(){return new Date().getDate()>27;}
 function prevBudgetMonth(){return addMonths(tm(),-1);}
 function isMonthLocked(mk){var prev=prevBudgetMonth();if(mk===prev&&isPrevMonthLocked())return true;if(mkCmp(mk,prev)<0)return true;return false;}
-function visibleMonths(){var now=tm();var year=now.slice(0,4);var m=[];for(var i=1;i<=12;i++)m.push(year+"-"+(i<10?"0":"")+i);return m;}
+function visibleMonths(){var m=[];for(var i=1;i<=12;i++)m.push(viewYear+"-"+(i<10?"0":"")+i);return m;}
 function gen10Y(){var k=[],d=new Date(2024,0,1);for(var i=0;i<144;i++){k.push(d.getFullYear()+"-"+(d.getMonth()<9?"0":"")+(d.getMonth()+1));d.setMonth(d.getMonth()+1);}return k;}
 var ALL=gen10Y();
 function td(){return new Date().toISOString().slice(0,10);}
@@ -173,6 +173,7 @@ function reLock(){sessionStorage.removeItem(UNLOCK_KEY);}
 // ── STATE ─────────────────────────────────────────────────
 var curPage="budget";
 var curM=tm();
+var viewYear=parseInt(tm().slice(0,4));
 var curTab="charges";
 var _needScrollChip=true;
 var modal=null;
@@ -852,6 +853,7 @@ function pageBudget(){
 
   h+='<div style="background:linear-gradient(160deg,#1a1d2e,#0F1117);padding:48px 0 0">';
   h+='<div id="months-scroll" style="display:flex;gap:7px;overflow-x:auto;padding:0 20px 12px;scroll-behavior:smooth">';
+  if(viewYear>2024)h+='<div class="chip" style="color:#B8B5FF;border-color:#B8B5FF55" onclick="prevYear()">‹ '+(viewYear-1)+'</div>';
   vs.forEach(function(mk){
     var isNow=mk===now,isCur=mk===curM,isLk=isMonthLocked(mk);
     var s=isNow?"border-color:#06D6A0;color:#06D6A0;background:#06D6A015":isCur?"border-color:#B8B5FF;color:#B8B5FF;background:#B8B5FF15":"";
@@ -862,7 +864,7 @@ function pageBudget(){
   h+='<div style="padding:0 20px 14px">';
   var now2=new Date();
   var fullDate=now2.toLocaleDateString("ar-MA",{weekday:"long",day:"numeric",month:"long",year:"numeric"});
-  h+='<div style="font-size:12px;color:#888;margin-bottom:8px;cursor:pointer;display:flex;align-items:center;gap:6px" onclick="setCurM(tm())">📅 '+fullDate+(curM!==now?'<span style="color:#B8B5FF;font-size:10px;background:#B8B5FF15;border-radius:99px;padding:1px 8px">← الشهر الحالي</span>':'')+'</div>';
+  h+='<div style="font-size:12px;color:#888;margin-bottom:8px;cursor:pointer;display:flex;align-items:center;gap:6px" onclick="goToday()">📅 '+fullDate+(curM!==now?'<span style="color:#B8B5FF;font-size:10px;background:#B8B5FF15;border-radius:99px;padding:1px 8px">← الشهر الحالي</span>':'')+'</div>';
 
   if(locked){
     h+='<div class="lock-banner">';
@@ -1145,7 +1147,7 @@ function buildForecast(){
   }
 
   var totalInc = fIncomes.reduce(function(s,i){return s+i.amount;},0);
-  var totalChg = fCharges.reduce(functioan(s,c){return s+c.amount;},0);
+  var totalChg = fCharges.reduce(function(s,c){return s+c.amount;},0);
   var netInc = totalInc - carryover; // الدخل الفعلي بعد خصم العجز
   var surplus = netInc - totalChg;
   var ratio = netInc > 0 ? Math.min((totalChg/netInc)*100, 100) : 100;
@@ -1478,6 +1480,26 @@ function buildModal(){
 
 // ── BUDGET ACTIONS ────────────────────────────────────────
 function setCurM(mk){var vis=visibleMonths();if(vis.indexOf(mk)===-1)return;curM=mk;_needScrollChip=true;expandedLog={};render();}
+function setTab(t){curTab=t;render();}
+function setCur(c){APP.currency=c;save();render();}
+function selCur(el){setCur(el.dataset.c);}
+function openModal(m){
+  if((m==="addCharge"||m==="addIncome"||m==="savings")&&guardLocked())return;
+  modal=m;numVal="";numStep="info";numComment="";
+  if(m==="addCharge"){recurType="none";recurMonths=[];recurYearlyMonth="";}
+  render();
+}
+function prevYear(){
+  if(viewYear<=2024)return;
+  viewYear--;
+  curM=viewYear+"-12";
+  _needScrollChip=true;expandedLog={};render();
+}
+function goToday(){
+  viewYear=parseInt(tm().slice(0,4));
+  curM=tm();
+  _needScrollChip=true;expandedLog={};render();
+}
 function setTab(t){curTab=t;render();}
 function setCur(c){APP.currency=c;save();render();}
 function selCur(el){setCur(el.dataset.c);}
